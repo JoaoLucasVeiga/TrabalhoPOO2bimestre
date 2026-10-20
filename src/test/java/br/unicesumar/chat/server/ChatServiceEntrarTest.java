@@ -141,6 +141,7 @@ class ChatServiceEntrarTest {
         ClienteFalso antigo = ClienteFalso.identificado(registry, "ana");
         ClienteFalso novo = novoCliente();
         chat.entrar(novo.handler, new Usuario("bia"));
-        assertTrue(antigo.eventos().isEmpty());
+        // o histórico do novo cliente não vai para os outros; eles só recebem o aviso de entrada
+        assertEquals(List.of(new Evento.Sistema("bia entrou na sala geral.")), antigo.eventos());
     }
 }

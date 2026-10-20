@@ -45,6 +45,15 @@ class ServidorDesconexaoIntegracaoTest {
             return Protocolo.decodificar(entrada.readLine());
         }
 
+        /** Próxima mensagem do chat, pulando os avisos SISTEMA de entrada e saída. */
+        Evento.Msg lerMsg() throws IOException {
+            Evento e = ler();
+            while (e instanceof Evento.Sistema) {
+                e = ler();
+            }
+            return assertInstanceOf(Evento.Msg.class, e);
+        }
+
         void enviar(String texto) {
             saida.print(Protocolo.codificarEntrada(texto) + "\n");
             saida.flush();
@@ -137,7 +146,7 @@ class ServidorDesconexaoIntegracaoTest {
                     }
                     int lidas = 0;
                     while (lidas < ficam * porCliente) {
-                        assertInstanceOf(Evento.Msg.class, c.ler());
+                        c.lerMsg();
                         lidas++;
                     }
                     return lidas;

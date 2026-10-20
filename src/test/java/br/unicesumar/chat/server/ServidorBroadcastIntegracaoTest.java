@@ -44,6 +44,15 @@ class ServidorBroadcastIntegracaoTest {
             return linha == null ? null : Protocolo.decodificar(linha);
         }
 
+        /** Próxima mensagem do chat, pulando os avisos SISTEMA de entrada e saída. */
+        Evento.Msg lerMsg() throws IOException {
+            Evento e = ler();
+            while (e instanceof Evento.Sistema) {
+                e = ler();
+            }
+            return assertInstanceOf(Evento.Msg.class, e);
+        }
+
         void enviar(String texto) {
             saida.print(Protocolo.codificarEntrada(texto) + "\n");
             saida.flush();
@@ -127,7 +136,7 @@ class ServidorBroadcastIntegracaoTest {
     private static List<String> lerDuas(Cliente c) throws IOException {
         List<String> recebidas = new ArrayList<>();
         for (int i = 0; i < 2; i++) {
-            Evento.Msg m = assertInstanceOf(Evento.Msg.class, c.ler());
+            Evento.Msg m = c.lerMsg();
             recebidas.add(m.remetente() + ": " + m.texto());
         }
         return recebidas;
@@ -149,8 +158,8 @@ class ServidorBroadcastIntegracaoTest {
             assertEquals(2, registry.quantidade());
 
             ana.enviar("continua");
-            assertEquals("continua", ((Evento.Msg) bia.ler()).texto());
-            assertEquals("continua", ((Evento.Msg) ana.ler()).texto());
+            assertEquals("continua", bia.lerMsg().texto());
+            assertEquals("continua", ana.lerMsg().texto());
         }
     }
 
