@@ -14,12 +14,11 @@ import java.util.Objects;
 public class ProcessadorChat implements ProcessadorEntrada {
 
     private final ChatService chat;
-    private final ClientRegistry registry;
 
     /** Recebe os serviços por injeção. */
     public ProcessadorChat(ChatService chat, ClientRegistry registry) {
         this.chat = Objects.requireNonNull(chat, "chat");
-        this.registry = Objects.requireNonNull(registry, "registry");
+        Objects.requireNonNull(registry, "registry");
     }
 
     /** Pede o nome de usuário ao cliente que acabou de conectar. */
@@ -44,12 +43,6 @@ public class ProcessadorChat implements ProcessadorEntrada {
     }
 
     private void identificar(ClienteHandler origem, String nome) {
-        Usuario usuario = new Usuario(nome);
-        if (!registry.identificar(origem, usuario)) {
-            throw new IllegalArgumentException(
-                    "O nome '" + nome + "' já está em uso. Escolha outro nome.");
-        }
-        origem.enviar(new Evento.Ok(
-                "Você entrou como " + usuario.nome() + " na sala " + origem.sala() + "."));
+        chat.entrar(origem, new Usuario(nome));
     }
 }

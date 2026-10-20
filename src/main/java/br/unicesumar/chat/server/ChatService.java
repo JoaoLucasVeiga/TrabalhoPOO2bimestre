@@ -14,6 +14,9 @@ import java.util.Objects;
  */
 public class ChatService {
 
+    /** Quantas mensagens recentes o cliente recebe ao entrar na sala. */
+    public static final int HISTORICO_INICIAL = 20;
+
     private final MensagemRepository repositorio;
     private final ClientRegistry registry;
     private final Clock relogio;
@@ -41,6 +44,31 @@ public class ChatService {
             registry.transmitir(Evento.Msg.de(salva),
                     c -> c.usuario().isPresent() && c.sala().equals(salva.sala()));
             return salva;
+        }
+    }
+
+    /**
+     * Identifica o cliente e lhe envia o histórico recente da sala (se houver) e o
+     * OK de boas-vindas. Buscar o histórico, identificar e enviar acontecem sob o
+     * mesmo lock de {@link #enviarMensagem}: nenhuma mensagem fica entre o
+     * histórico e o broadcast ao vivo, então nada se perde nem chega duplicado.
+     *
+     * @throws IllegalArgumentException se o nome já está em uso ou o cliente não está registrado
+     */
+    public void entrar(ClienteHandler cliente, Usuario usuario) {
+        synchronized (ordem) {
+            List<Evento.Msg> historico = repositorio
+                    .buscarUltimas(cliente.sala(), HISTORICO_INICIAL).stream()
+                    .map(Evento.Msg::de).toList();
+            if (!registry.identificar(cliente, usuario)) {
+                throw new IllegalArgumentException(
+                        "O nome '" + usuario.nome() + "' já está em uso. Escolha outro nome.");
+            }
+            if (!historico.isEmpty()) {
+                cliente.enviar(new Evento.Historico(historico));
+            }
+            cliente.enviar(new Evento.Ok(
+                    "Você entrou como " + usuario.nome() + " na sala " + cliente.sala() + "."));
         }
     }
 
