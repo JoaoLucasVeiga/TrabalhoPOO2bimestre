@@ -62,6 +62,18 @@ public class ClientRegistry {
         }
     }
 
+    /** Nomes dos clientes identificados na sala, em ordem alfabética (sem diferenciar maiúsculas). */
+    public List<String> usuariosNaSala(String sala) {
+        synchronized (lock) {
+            return clientes.stream()
+                    .filter(c -> c.sala().equals(sala))
+                    .flatMap(c -> c.usuario().stream())
+                    .map(Usuario::nome)
+                    .sorted(String.CASE_INSENSITIVE_ORDER)
+                    .toList();
+        }
+    }
+
     /**
      * Associa um usuário a um cliente registrado, só se nenhum outro cliente já
      * usa o nome. A verificação e a atribuição acontecem sob o mesmo lock, para

@@ -14,11 +14,17 @@ import java.util.Objects;
 public class ProcessadorChat implements ProcessadorEntrada {
 
     private final ChatService chat;
+    private final CommandService comandos;
+
+    /** Cria o processador com o {@link CommandService} padrão (comandos básicos). */
+    public ProcessadorChat(ChatService chat, ClientRegistry registry) {
+        this(chat, new CommandService(chat, registry));
+    }
 
     /** Recebe os serviços por injeção. */
-    public ProcessadorChat(ChatService chat, ClientRegistry registry) {
+    public ProcessadorChat(ChatService chat, CommandService comandos) {
         this.chat = Objects.requireNonNull(chat, "chat");
-        Objects.requireNonNull(registry, "registry");
+        this.comandos = Objects.requireNonNull(comandos, "comandos");
     }
 
     /** Pede o nome de usuário ao cliente que acabou de conectar. */
@@ -28,12 +34,14 @@ public class ProcessadorChat implements ProcessadorEntrada {
                 "Bem-vindo ao chat! Digite o seu nome de usuário para entrar."));
     }
 
-    /** Identifica o cliente (primeira linha) ou envia a linha como mensagem. */
+    /** Identifica o cliente (primeira linha), executa um comando ({@code /...}) ou envia uma mensagem. */
     @Override
     public void aoReceber(ClienteHandler origem, String linha) {
         try {
             if (origem.usuario().isEmpty()) {
                 identificar(origem, linha.strip());
+            } else if (CommandService.ehComando(linha)) {
+                comandos.executar(origem, linha);
             } else {
                 chat.enviarMensagem(origem.usuario().get(), origem.sala(), linha);
             }
