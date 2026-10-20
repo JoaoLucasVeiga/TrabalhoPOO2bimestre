@@ -1,0 +1,18 @@
+target/
+*.db
+*.db-wal
+*.db-shm
+.idea/
+*.iml
+.vscode/
+# chaves, tokens e segredos
+*.pem
+*.key
+*.jks
+*.p12
+.env
+*token*
+*secret*
+# arquivos exportados
+exportacoes/
+logs/
