@@ -54,11 +54,32 @@ public class ClienteHandler implements Runnable {
         this.processador = Objects.requireNonNull(processador, "processador");
     }
 
-    /** Cria o handler de um socket aceito pelo servidor. */
+    /**
+     * Cria o handler de um socket aceito pelo servidor. A escrita passa por uma
+     * {@link SaidaAssincrona}: um cliente que para de ler não trava o servidor.
+     */
     public static ClienteHandler de(Socket socket, ProcessadorEntrada processador)
             throws IOException {
-        return new ClienteHandler(socket.getInputStream(), socket.getOutputStream(), socket,
-                processador);
+        return assincrono(socket.getInputStream(), socket.getOutputStream(), socket, processador,
+                SaidaAssincrona.LIMITE_PADRAO);
+    }
+
+    /**
+     * Cria um handler cuja escrita é enfileirada (veja {@link SaidaAssincrona}).
+     *
+     * @param limiteBytes bytes pendentes tolerados antes de desconectar o cliente lento
+     */
+    public static ClienteHandler assincrono(InputStream entrada, OutputStream destino,
+            AutoCloseable conexao, ProcessadorEntrada processador, int limiteBytes) {
+        SaidaAssincrona saida = new SaidaAssincrona(destino, limiteBytes);
+        AutoCloseable fechador = () -> {
+            try {
+                saida.close();
+            } finally {
+                conexao.close();
+            }
+        };
+        return new ClienteHandler(entrada, saida, fechador, processador);
     }
 
     /** Laço de leitura: roda na thread da conexão até o cliente sair ou cair. */
