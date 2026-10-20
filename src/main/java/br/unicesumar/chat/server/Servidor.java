@@ -15,13 +15,14 @@ import java.util.logging.Logger;
 
 /**
  * Escuta conexões TCP e entrega cada uma a um {@link ClienteHandler}, que roda
- * em sua própria thread. Não executa SQL nem regras do chat.
+ * em sua própria thread. Registra cada cliente no {@link ClientRegistry}. Não executa SQL nem regras do chat.
  */
 public class Servidor {
 
     private static final Logger LOG = Logger.getLogger(Servidor.class.getName());
 
     private final int porta;
+    private final ClientRegistry registry;
     private final ProcessadorEntrada processador;
     private final AtomicInteger contador = new AtomicInteger();
     private final ExecutorService clientes = Executors.newCachedThreadPool(daemon("cliente-"));
@@ -29,18 +30,46 @@ public class Servidor {
     private volatile boolean parado;
     private Thread threadDeAccept;
 
+    /** Cria o servidor com um registro de clientes próprio. Veja o outro construtor. */
+    public Servidor(int porta, ProcessadorEntrada processador) {
+        this(porta, new ClientRegistry(), processador);
+    }
+
     /**
      * Cria o servidor (ainda sem escutar).
      *
      * @param porta       de 0 a 65535; 0 escolhe uma porta livre
+     * @param registry    onde ficam os clientes conectados
      * @param processador quem interpreta as linhas dos clientes
      */
-    public Servidor(int porta, ProcessadorEntrada processador) {
+    public Servidor(int porta, ClientRegistry registry, ProcessadorEntrada processador) {
         if (porta < 0 || porta > 65535) {
             throw new IllegalArgumentException("Porta inválida: " + porta + ". Use de 0 a 65535.");
         }
         this.porta = porta;
-        this.processador = Objects.requireNonNull(processador, "processador");
+        this.registry = Objects.requireNonNull(registry, "registry");
+        this.processador = removendoDoRegistro(Objects.requireNonNull(processador, "processador"));
+    }
+
+    /** Decora o processador: o cliente sai do registro antes de o processador saber da saída. */
+    private ProcessadorEntrada removendoDoRegistro(ProcessadorEntrada real) {
+        return new ProcessadorEntrada() {
+            @Override
+            public void aoConectar(ClienteHandler origem) {
+                real.aoConectar(origem);
+            }
+
+            @Override
+            public void aoReceber(ClienteHandler origem, String linha) {
+                real.aoReceber(origem, linha);
+            }
+
+            @Override
+            public void aoDesconectar(ClienteHandler origem) {
+                registry.remover(origem);
+                real.aoDesconectar(origem);
+            }
+        };
     }
 
     private static ThreadFactory daemon(String prefixo) {
@@ -95,7 +124,13 @@ public class Servidor {
     private void entregar(Socket socket) {
         try {
             ClienteHandler handler = ClienteHandler.de(socket, processador);
-            clientes.execute(handler);
+            registry.adicionar(handler);
+            try {
+                clientes.execute(handler);
+            } catch (RejectedExecutionException e) {
+                registry.remover(handler);
+                throw e;
+            }
             LOG.log(Level.INFO, "Conexão {0} aceita", contador.incrementAndGet());
         } catch (IOException | RejectedExecutionException e) {
             LOG.log(Level.WARNING, "Conexão descartada: " + e.getMessage(), e);
@@ -105,6 +140,11 @@ public class Servidor {
                 LOG.log(Level.FINE, "Falha ao fechar socket descartado", ignorada);
             }
         }
+    }
+
+    /** Registro dos clientes conectados. */
+    public ClientRegistry registry() {
+        return registry;
     }
 
     /** Porta em que o servidor escuta (útil quando foi criado com porta 0). */
@@ -130,6 +170,7 @@ public class Servidor {
                 LOG.log(Level.WARNING, "Falha ao fechar o socket de escuta: " + e.getMessage(), e);
             }
         }
+        registry.encerrarTodos();
         clientes.shutdown();
     }
 }

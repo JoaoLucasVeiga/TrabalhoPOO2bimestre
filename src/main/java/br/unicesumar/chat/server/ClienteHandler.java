@@ -1,5 +1,7 @@
 package br.unicesumar.chat.server;
 
+import br.unicesumar.chat.model.Sala;
+import br.unicesumar.chat.model.Usuario;
 import br.unicesumar.chat.protocol.Evento;
 import br.unicesumar.chat.protocol.Protocolo;
 import br.unicesumar.chat.protocol.ProtocoloException;
@@ -13,6 +15,7 @@ import java.io.PrintWriter;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -32,6 +35,8 @@ public class ClienteHandler implements Runnable {
     private final ProcessadorEntrada processador;
     private final AtomicBoolean fechada = new AtomicBoolean(false);
     private volatile boolean ativo = true;
+    private volatile Usuario usuario;
+    private volatile String sala = Sala.PADRAO;
 
     /**
      * Cria o handler sobre streams quaisquer (permite testar sem rede).
@@ -114,6 +119,26 @@ public class ClienteHandler implements Runnable {
             return false;
         }
         return true;
+    }
+
+    /** Usuário identificado nesta conexão; vazio até a identificação. */
+    public Optional<Usuario> usuario() {
+        return Optional.ofNullable(usuario);
+    }
+
+    /** Sala em que o cliente está (padrão: "geral"). */
+    public String sala() {
+        return sala;
+    }
+
+    /** Só o {@link ClientRegistry} identifica clientes, para checar nomes de forma atômica. */
+    void definirUsuario(Usuario novo) {
+        this.usuario = novo;
+    }
+
+    /** Muda a sala atual do cliente. */
+    void definirSala(String nova) {
+        this.sala = Objects.requireNonNull(nova, "sala");
     }
 
     /** Indica se a conexão ainda está em uso. */
