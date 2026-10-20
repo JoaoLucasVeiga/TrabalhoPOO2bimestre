@@ -69,7 +69,25 @@ public class ChatService {
             }
             cliente.enviar(new Evento.Ok(
                     "Você entrou como " + usuario.nome() + " na sala " + cliente.sala() + "."));
+            avisarSala(cliente, usuario.nome() + " entrou na sala " + cliente.sala() + ".");
         }
+    }
+
+    /**
+     * Avisa quem está na sala que o cliente saiu. Deve ser chamado depois de o
+     * cliente ser removido do registro. Cliente que nunca se identificou não gera aviso.
+     */
+    public void sair(ClienteHandler cliente) {
+        cliente.usuario().ifPresent(usuario -> {
+            synchronized (ordem) {
+                avisarSala(cliente, usuario.nome() + " saiu da sala " + cliente.sala() + ".");
+            }
+        });
+    }
+
+    private void avisarSala(ClienteHandler origem, String aviso) {
+        registry.transmitir(new Evento.Sistema(aviso),
+                c -> c != origem && c.usuario().isPresent() && c.sala().equals(origem.sala()));
     }
 
     /** Devolve as últimas mensagens públicas da sala, da mais antiga para a mais recente. */

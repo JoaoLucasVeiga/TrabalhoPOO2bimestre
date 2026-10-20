@@ -50,6 +50,12 @@ public class ProcessadorChat implements ProcessadorEntrada {
         }
     }
 
+    /** Avisa a sala de que o cliente saiu (a conexão já foi encerrada e removida do registro). */
+    @Override
+    public void aoDesconectar(ClienteHandler origem) {
+        chat.sair(origem);
+    }
+
     private void identificar(ClienteHandler origem, String nome) {
         chat.entrar(origem, new Usuario(nome));
     }
