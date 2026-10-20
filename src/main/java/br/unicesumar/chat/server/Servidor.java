@@ -28,7 +28,7 @@ public class Servidor {
     private final ExecutorService clientes = Executors.newCachedThreadPool(daemon("cliente-"));
     private volatile ServerSocket socketDeEscuta;
     private volatile boolean parado;
-    private Thread threadDeAccept;
+    private volatile Thread threadDeAccept;
 
     /** Cria o servidor com um registro de clientes próprio. Veja o outro construtor. */
     public Servidor(int porta, ProcessadorEntrada processador) {
@@ -109,6 +109,11 @@ public class Servidor {
         while (!parado) {
             try {
                 Socket socket = escuta.accept();
+                if (parado) {
+                    // chegou na janela entre o parar() e o fechamento real do socket de escuta
+                    socket.close();
+                    return;
+                }
                 entregar(socket);
             } catch (SocketException e) {
                 if (!parado) {
@@ -170,7 +175,24 @@ public class Servidor {
                 LOG.log(Level.WARNING, "Falha ao fechar o socket de escuta: " + e.getMessage(), e);
             }
         }
+        aguardarFimDoAccept();
         registry.encerrarTodos();
         clientes.shutdown();
+    }
+
+    /**
+     * Espera a thread de accept terminar: só então o socket de escuta deixou de
+     * existir no sistema operacional e novas conexões passam a ser recusadas.
+     */
+    private void aguardarFimDoAccept() {
+        Thread accept = threadDeAccept;
+        if (accept == null || accept == Thread.currentThread()) {
+            return;
+        }
+        try {
+            accept.join(5000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 }
