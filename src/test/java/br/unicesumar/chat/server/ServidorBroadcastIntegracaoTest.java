@@ -13,6 +13,9 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
@@ -109,14 +112,25 @@ class ServidorBroadcastIntegracaoTest {
             ana.enviar("olá a todos | com delimitador");
             bia.enviar("oi ana");
 
-            for (Cliente c : new Cliente[] {ana, bia, caio}) {
-                Evento.Msg primeira = assertInstanceOf(Evento.Msg.class, c.ler());
-                assertEquals("ana", primeira.remetente());
-                assertEquals("olá a todos | com delimitador", primeira.texto());
-                Evento.Msg segunda = assertInstanceOf(Evento.Msg.class, c.ler());
-                assertEquals("bia", segunda.remetente());
-            }
+            // a ordem entre clientes independentes não é garantida; o que se garante
+            // é que os três recebem as duas mensagens e na MESMA ordem
+            List<String> ordemAna = lerDuas(ana);
+            List<String> ordemBia = lerDuas(bia);
+            List<String> ordemCaio = lerDuas(caio);
+            assertEquals(ordemAna, ordemBia);
+            assertEquals(ordemAna, ordemCaio);
+            assertEquals(Set.of("ana: olá a todos | com delimitador", "bia: oi ana"),
+                    Set.copyOf(ordemAna));
         }
+    }
+
+    private static List<String> lerDuas(Cliente c) throws IOException {
+        List<String> recebidas = new ArrayList<>();
+        for (int i = 0; i < 2; i++) {
+            Evento.Msg m = assertInstanceOf(Evento.Msg.class, c.ler());
+            recebidas.add(m.remetente() + ": " + m.texto());
+        }
+        return recebidas;
     }
 
     @Test
