@@ -1,5 +1,7 @@
 package br.unicesumar.chat;
 
+import br.unicesumar.chat.infra.ExportadorHistorico;
+import br.unicesumar.chat.infra.LogArquivo;
 import br.unicesumar.chat.persistence.jdbc.ConnectionFactory;
 import br.unicesumar.chat.persistence.jdbc.JdbcMensagemRepository;
 import br.unicesumar.chat.persistence.jdbc.JdbcUsuarioRepository;
@@ -8,6 +10,7 @@ import br.unicesumar.chat.server.ChatService;
 import br.unicesumar.chat.server.ClientRegistry;
 import br.unicesumar.chat.server.CommandService;
 import br.unicesumar.chat.server.ProcessadorChat;
+import br.unicesumar.chat.server.ProcessadorComLog;
 import br.unicesumar.chat.server.SalaService;
 import br.unicesumar.chat.server.Servidor;
 import java.io.IOException;
@@ -50,10 +53,14 @@ public final class ServidorMain {
         ChatService chat = new ChatService(new JdbcMensagemRepository(fabrica), registry,
                 Clock.systemDefaultZone());
         AuthService auth = comAutenticacao ? new AuthService(new JdbcUsuarioRepository(fabrica)) : null;
-        CommandService comandos = new CommandService(chat, registry, new SalaService(chat, registry), auth);
+        ExportadorHistorico exportador = new ExportadorHistorico(Path.of("exportacoes"), Clock.systemDefaultZone());
+        CommandService comandos = new CommandService(chat, registry, new SalaService(chat, registry), auth,
+                exportador);
+        LogArquivo log = new LogArquivo(Path.of("logs", "servidor.log"), Clock.systemDefaultZone());
         Servidor servidor = new Servidor(Integer.parseInt(porta), registry,
-                new ProcessadorChat(chat, comandos));
+                new ProcessadorComLog(new ProcessadorChat(chat, comandos), log));
         servidor.iniciar();
+        log.info("Servidor iniciado na porta " + servidor.porta());
         System.out.println("Servidor no ar na porta " + servidor.porta() + " (banco: "
                 + banco.toAbsolutePath() + ", " + (comAutenticacao ? "com" : "sem")
                 + " autenticação). Ctrl+C para parar.");

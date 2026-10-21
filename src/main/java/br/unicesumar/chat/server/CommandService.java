@@ -1,8 +1,11 @@
 package br.unicesumar.chat.server;
 
+import br.unicesumar.chat.infra.ExportadorHistorico;
 import br.unicesumar.chat.model.Mensagem;
 import br.unicesumar.chat.model.Usuario;
 import br.unicesumar.chat.protocol.Evento;
+import java.io.IOException;
+import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.LinkedHashMap;
@@ -11,6 +14,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
 /**
@@ -24,6 +29,11 @@ public class CommandService {
     /** Maior quantidade aceita em {@code /history}. */
     public static final int HISTORICO_MAXIMO = 100;
 
+    /** Máximo de mensagens gravadas por {@code /exportar} (as mais recentes). */
+    public static final int EXPORTACAO_MAXIMA = 1000;
+
+    private static final Logger LOG = Logger.getLogger(CommandService.class.getName());
+
     /** Comandos permitidos a quem ainda não entrou (só no modo com autenticação). */
     private static final Set<String> SEM_LOGIN = Set.of("help", "quit", "register", "login");
 
@@ -36,6 +46,7 @@ public class CommandService {
     private final ClientRegistry registry;
     private final SalaService salas;
     private final AuthService auth;
+    private final ExportadorHistorico exportador;
     private final Map<String, Registro> comandos = new LinkedHashMap<>();
 
     /** Cria o serviço sem autenticação e com o {@link SalaService} padrão. */
@@ -60,10 +71,22 @@ public class CommandService {
      */
     public CommandService(ChatService chat, ClientRegistry registry, SalaService salas,
             AuthService auth) {
+        this(chat, registry, salas, auth, null);
+    }
+
+    /**
+     * Recebe todos os serviços por injeção e registra os comandos.
+     *
+     * @param auth       serviço de autenticação, ou {@code null} para o modo sem login
+     * @param exportador grava o {@code /exportar}, ou {@code null} para não oferecer o comando
+     */
+    public CommandService(ChatService chat, ClientRegistry registry, SalaService salas,
+            AuthService auth, ExportadorHistorico exportador) {
         this.chat = Objects.requireNonNull(chat, "chat");
         this.registry = Objects.requireNonNull(registry, "registry");
         this.salas = Objects.requireNonNull(salas, "salas");
         this.auth = auth;
+        this.exportador = exportador;
         if (auth != null) {
             registrar("register", "/register nome senha", "Cria uma conta e entra no chat.",
                     this::criarConta);
@@ -82,6 +105,10 @@ public class CommandService {
         registrar("join", "/join sala", "Entra em uma sala (cria se ainda não existir).", this::entrarSala);
         registrar("leave", "/leave", "Sai da sala atual e volta para a geral.", this::sairSala);
         registrar("rooms", "/rooms", "Lista as salas ativas.", this::listarSalas);
+        if (exportador != null) {
+            registrar("exportar", "/exportar", "Grava o histórico da sala atual em um arquivo .txt no servidor.",
+                    this::exportar);
+        }
         registrar("quit", "/quit", "Sai do chat.", this::sair);
     }
 
@@ -217,6 +244,29 @@ public class CommandService {
                     .replace("senha", "minhasenha"));
         }
         return new String[] {nome, senha};
+    }
+
+    private void exportar(ClienteHandler origem, String argumentos) {
+        if (!argumentos.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "Uso: /exportar (sem argumentos). O histórico da sua sala atual é gravado em um arquivo .txt.");
+        }
+        List<Mensagem> mensagens = chat.buscarHistorico(origem.sala(), EXPORTACAO_MAXIMA);
+        if (mensagens.isEmpty()) {
+            throw new IllegalArgumentException("Não há mensagens para exportar nesta sala.");
+        }
+        try {
+            Path arquivo = exportador.exportar(origem.sala(),
+                    mensagens.stream().map(Mensagem::formatar).toList());
+            String limite = mensagens.size() == EXPORTACAO_MAXIMA
+                    ? " (limitado às últimas " + EXPORTACAO_MAXIMA + " mensagens)" : "";
+            origem.enviar(new Evento.Ok("Histórico exportado para o arquivo " + arquivo.getFileName()
+                    + " na pasta de exportações do servidor" + limite + "."));
+        } catch (IOException e) {
+            LOG.log(Level.SEVERE, "Falha ao exportar o histórico: " + e.getMessage(), e);
+            throw new IllegalArgumentException("Não foi possível gravar o arquivo de exportação. "
+                    + "Avise quem administra o servidor para verificar o espaço em disco e as permissões.");
+        }
     }
 
     private void privada(ClienteHandler origem, String argumentos) {
