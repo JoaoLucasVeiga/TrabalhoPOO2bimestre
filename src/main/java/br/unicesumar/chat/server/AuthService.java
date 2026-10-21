@@ -9,6 +9,8 @@ import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
 
@@ -21,6 +23,8 @@ import javax.crypto.spec.PBEKeySpec;
  * próprio; é seguro entre threads. Só conhece a interface {@link UsuarioRepository}.
  */
 public class AuthService {
+
+    private static final Logger LOG = Logger.getLogger(AuthService.class.getName());
 
     /** Iterações padrão do PBKDF2. */
     public static final int ITERACOES_PADRAO = 210_000;
@@ -124,19 +128,26 @@ public class AuthService {
         try {
             String[] partes = credencial.senhaHash().split("\\$", -1);
             if (partes.length != 3 || !PREFIXO.equals(partes[0])) {
-                return false;
+                return hashForaDoFormato(credencial);
             }
             int voltas = Integer.parseInt(partes[1]);
             if (voltas < 1 || voltas > ITERACOES_MAXIMAS_ACEITAS) {
-                return false;
+                return hashForaDoFormato(credencial);
             }
             byte[] esperado = Base64.getDecoder().decode(partes[2]);
             byte[] salt = Base64.getDecoder().decode(credencial.salt());
             byte[] calculado = derivar(senha, salt, voltas);
             return MessageDigest.isEqual(esperado, calculado); // tempo constante
         } catch (IllegalArgumentException e) {
-            return false; // hash ou salt guardados fora do formato esperado
+            return hashForaDoFormato(credencial);
         }
+    }
+
+    /** Registra o problema (só o dono do registro, nunca o hash nem a senha) e recusa o login. */
+    private static boolean hashForaDoFormato(CredencialUsuario credencial) {
+        LOG.log(Level.WARNING, "Hash ou salt de ''{0}'' está fora do formato esperado; login recusado.",
+                credencial.usuario().nome());
+        return false;
     }
 
     private void gastarOMesmoTempo(String senha) {

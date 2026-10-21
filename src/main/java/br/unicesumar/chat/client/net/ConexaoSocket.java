@@ -10,10 +10,13 @@ import java.io.PrintWriter;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /** Adaptador real de {@link ConexaoChat}: TCP com o protocolo de texto. */
 public class ConexaoSocket implements ConexaoChat {
 
+    private static final Logger LOG = Logger.getLogger(ConexaoSocket.class.getName());
     private static final int TEMPO_PARA_CONECTAR_MS = 5000;
 
     private final String host;
@@ -88,7 +91,7 @@ public class ConexaoSocket implements ConexaoChat {
             try {
                 s.close();
             } catch (IOException e) {
-                // fechar um socket que já caiu não tem o que tratar
+                LOG.log(Level.INFO, "Falha ao fechar o socket (a conexão já havia caído): {0}", e.getMessage());
             }
         }
     }

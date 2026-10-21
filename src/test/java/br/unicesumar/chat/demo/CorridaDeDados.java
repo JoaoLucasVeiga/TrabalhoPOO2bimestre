@@ -2,6 +2,7 @@ package br.unicesumar.chat.demo;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -66,13 +67,24 @@ public final class CorridaDeDados {
         }
     }
 
+    /** Cria as threads, espera todas ficarem prontas e as libera juntas (maximiza a disputa). */
     private static void executar(int quantidade, Runnable tarefa) throws InterruptedException {
+        CountDownLatch largada = new CountDownLatch(1);
         List<Thread> threads = new ArrayList<>();
         for (int i = 0; i < quantidade; i++) {
-            Thread t = new Thread(tarefa, "soma-" + i);
+            Thread t = new Thread(() -> {
+                try {
+                    largada.await();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+                tarefa.run();
+            }, "soma-" + i);
             threads.add(t);
             t.start();
         }
+        largada.countDown();
         for (Thread t : threads) {
             t.join();
         }
@@ -82,7 +94,7 @@ public final class CorridaDeDados {
     public static void main(String[] args) throws InterruptedException {
         int vezes = 1_000_000;
         System.out.println("Esperado: " + (2L * vezes));
-        for (int rodada = 1; rodada <= 3; rodada++) {
+        for (int rodada = 1; rodada <= 5; rodada++) {
             System.out.println("Rodada " + rodada + " - SEM sincronização: " + somarSemSincronizar(2, vezes));
         }
         System.out.println("COM synchronized:       " + somarSincronizado(2, vezes));
