@@ -2,10 +2,12 @@ package br.unicesumar.chat.server;
 
 import br.unicesumar.chat.model.Usuario;
 import br.unicesumar.chat.protocol.Evento;
+import br.unicesumar.chat.model.Sala;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.TreeSet;
 import java.util.function.Predicate;
 
 /**
@@ -71,6 +73,19 @@ public class ClientRegistry {
                     .map(Usuario::nome)
                     .sorted(String.CASE_INSENSITIVE_ORDER)
                     .toList();
+        }
+    }
+
+    /**
+     * Salas com pelo menos um cliente identificado, mais a sala padrão (sempre
+     * existe), sem repetição e em ordem alfabética.
+     */
+    public List<String> salasAtivas() {
+        synchronized (lock) {
+            TreeSet<String> salas = new TreeSet<>();
+            salas.add(Sala.PADRAO);
+            clientes.stream().filter(c -> c.usuario().isPresent()).forEach(c -> salas.add(c.sala()));
+            return List.copyOf(salas);
         }
     }
 

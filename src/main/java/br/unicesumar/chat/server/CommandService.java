@@ -1,6 +1,9 @@
 package br.unicesumar.chat.server;
 
+import br.unicesumar.chat.model.Mensagem;
 import br.unicesumar.chat.protocol.Evento;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -26,17 +29,31 @@ public class CommandService {
 
     private final ChatService chat;
     private final ClientRegistry registry;
+    private final SalaService salas;
     private final Map<String, Registro> comandos = new LinkedHashMap<>();
 
-    /** Recebe os serviços por injeção e registra os comandos básicos. */
+    /** Cria o serviço com o {@link SalaService} padrão. Veja o outro construtor. */
     public CommandService(ChatService chat, ClientRegistry registry) {
+        this(chat, registry, new SalaService(chat, registry));
+    }
+
+    /** Recebe os serviços por injeção e registra os comandos. */
+    public CommandService(ChatService chat, ClientRegistry registry, SalaService salas) {
         this.chat = Objects.requireNonNull(chat, "chat");
         this.registry = Objects.requireNonNull(registry, "registry");
+        this.salas = Objects.requireNonNull(salas, "salas");
         registrar("help", "/help", "Mostra esta lista de comandos.", this::ajuda);
         registrar("users", "/users", "Lista os usuários online na sua sala.", this::usuarios);
         registrar("history", "/history [quantidade]",
                 "Mostra as últimas mensagens da sala (de 1 a " + HISTORICO_MAXIMO + ").",
                 this::historico);
+        registrar("msg", "/msg usuario texto", "Envia uma mensagem privada a um usuário online.",
+                this::privada);
+        registrar("buscar", "/buscar usuario|texto|periodo ...",
+                "Busca no histórico da sala (ex.: /buscar texto java).", this::buscar);
+        registrar("join", "/join sala", "Entra em uma sala (cria se ainda não existir).", this::entrarSala);
+        registrar("leave", "/leave", "Sai da sala atual e volta para a geral.", this::sairSala);
+        registrar("rooms", "/rooms", "Lista as salas ativas.", this::listarSalas);
         registrar("quit", "/quit", "Sai do chat.", this::sair);
     }
 
@@ -125,6 +142,72 @@ public class CommandService {
     private static IllegalArgumentException usoDoHistorico() {
         return new IllegalArgumentException("Uso: /history [quantidade], com a quantidade de 1 a "
                 + HISTORICO_MAXIMO + ". Exemplo: /history 10");
+    }
+
+    private void privada(ClienteHandler origem, String argumentos) {
+        int espaco = indiceDoEspaco(argumentos);
+        String nome = espaco < 0 ? argumentos : argumentos.substring(0, espaco);
+        String texto = espaco < 0 ? "" : argumentos.substring(espaco).strip();
+        if (nome.isEmpty() || texto.isEmpty()) {
+            throw new IllegalArgumentException("Uso: /msg usuario texto. Exemplo: /msg ana Olá!");
+        }
+        chat.enviarPrivada(origem, nome, texto);
+    }
+
+    private void buscar(ClienteHandler origem, String argumentos) {
+        String[] palavras = argumentos.isEmpty() ? new String[0] : argumentos.split("\\s+");
+        if (palavras.length < 2) {
+            throw usoDaBusca();
+        }
+        String tipo = palavras[0].toLowerCase(Locale.ROOT);
+        String resto = argumentos.substring(palavras[0].length()).strip();
+        List<Mensagem> achadas = switch (tipo) {
+            case "usuario" -> palavras.length == 2 ? chat.buscarPorUsuario(origem.sala(), palavras[1])
+                    : semResultado();
+            case "texto" -> chat.buscarPorTexto(origem.sala(), resto);
+            case "periodo" -> palavras.length == 3
+                    ? chat.buscarPorPeriodo(origem.sala(), data(palavras[1]), data(palavras[2]))
+                    : semResultado();
+            default -> semResultado();
+        };
+        List<Evento.Msg> mensagens = achadas.stream().map(Evento.Msg::de).toList();
+        if (mensagens.isEmpty()) {
+            origem.enviar(new Evento.Sistema("Nenhuma mensagem encontrada."));
+        } else {
+            origem.enviar(new Evento.Historico(mensagens));
+        }
+    }
+
+    private static List<Mensagem> semResultado() {
+        throw usoDaBusca();
+    }
+
+    private static LocalDate data(String texto) {
+        try {
+            return LocalDate.parse(texto);
+        } catch (DateTimeParseException e) {
+            throw usoDaBusca();
+        }
+    }
+
+    private static IllegalArgumentException usoDaBusca() {
+        return new IllegalArgumentException("Uso: /buscar usuario <nome> | /buscar texto <trecho> | "
+                + "/buscar periodo <AAAA-MM-DD> <AAAA-MM-DD>. Exemplo: /buscar periodo 2026-10-01 2026-10-31");
+    }
+
+    private void entrarSala(ClienteHandler origem, String argumentos) {
+        if (argumentos.isEmpty()) {
+            throw new IllegalArgumentException("Uso: /join sala. Exemplo: /join java");
+        }
+        salas.entrarSala(origem, argumentos);
+    }
+
+    private void sairSala(ClienteHandler origem, String argumentos) {
+        salas.sairSala(origem);
+    }
+
+    private void listarSalas(ClienteHandler origem, String argumentos) {
+        origem.enviar(new Evento.Salas(salas.listarSalas()));
     }
 
     private void sair(ClienteHandler origem, String argumentos) {
