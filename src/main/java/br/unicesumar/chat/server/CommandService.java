@@ -1,6 +1,7 @@
 package br.unicesumar.chat.server;
 
 import br.unicesumar.chat.model.Mensagem;
+import br.unicesumar.chat.model.Usuario;
 import br.unicesumar.chat.protocol.Evento;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
@@ -9,6 +10,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
@@ -22,6 +24,9 @@ public class CommandService {
     /** Maior quantidade aceita em {@code /history}. */
     public static final int HISTORICO_MAXIMO = 100;
 
+    /** Comandos permitidos a quem ainda não entrou (só no modo com autenticação). */
+    private static final Set<String> SEM_LOGIN = Set.of("help", "quit", "register", "login");
+
     private static final Pattern QUANTIDADE = Pattern.compile("\\d{1,4}");
 
     private record Registro(String uso, String descricao, Comando comando) {
@@ -30,18 +35,41 @@ public class CommandService {
     private final ChatService chat;
     private final ClientRegistry registry;
     private final SalaService salas;
+    private final AuthService auth;
     private final Map<String, Registro> comandos = new LinkedHashMap<>();
 
-    /** Cria o serviço com o {@link SalaService} padrão. Veja o outro construtor. */
+    /** Cria o serviço sem autenticação e com o {@link SalaService} padrão. */
     public CommandService(ChatService chat, ClientRegistry registry) {
-        this(chat, registry, new SalaService(chat, registry));
+        this(chat, registry, new SalaService(chat, registry), null);
     }
 
-    /** Recebe os serviços por injeção e registra os comandos. */
+    /** Cria o serviço sem autenticação, com o {@link SalaService} informado. */
     public CommandService(ChatService chat, ClientRegistry registry, SalaService salas) {
+        this(chat, registry, salas, null);
+    }
+
+    /** Cria o serviço com autenticação obrigatória e o {@link SalaService} padrão. */
+    public CommandService(ChatService chat, ClientRegistry registry, AuthService auth) {
+        this(chat, registry, new SalaService(chat, registry), Objects.requireNonNull(auth, "auth"));
+    }
+
+    /**
+     * Recebe os serviços por injeção e registra os comandos.
+     *
+     * @param auth serviço de autenticação, ou {@code null} para o modo sem login
+     */
+    public CommandService(ChatService chat, ClientRegistry registry, SalaService salas,
+            AuthService auth) {
         this.chat = Objects.requireNonNull(chat, "chat");
         this.registry = Objects.requireNonNull(registry, "registry");
         this.salas = Objects.requireNonNull(salas, "salas");
+        this.auth = auth;
+        if (auth != null) {
+            registrar("register", "/register nome senha", "Cria uma conta e entra no chat.",
+                    this::criarConta);
+            registrar("login", "/login nome senha", "Entra no chat com uma conta existente.",
+                    this::entrarComConta);
+        }
         registrar("help", "/help", "Mostra esta lista de comandos.", this::ajuda);
         registrar("users", "/users", "Lista os usuários online na sua sala.", this::usuarios);
         registrar("history", "/history [quantidade]",
@@ -59,6 +87,11 @@ public class CommandService {
 
     private void registrar(String nome, String uso, String descricao, Comando comando) {
         comandos.put(nome, new Registro(uso, descricao, comando));
+    }
+
+    /** Indica se é preciso entrar (com /login ou /register) antes de usar o chat. */
+    public boolean exigeAutenticacao() {
+        return auth != null;
     }
 
     /** Indica se a linha é um comando (começa com {@code /}, ignorando espaços iniciais). */
@@ -89,6 +122,11 @@ public class CommandService {
         if (registro == null) {
             origem.enviar(new Evento.Erro("Comando desconhecido: /" + nome
                     + ". Digite /help para ver os comandos disponíveis."));
+            return;
+        }
+        if (auth != null && origem.usuario().isEmpty() && !SEM_LOGIN.contains(nome.toLowerCase(Locale.ROOT))) {
+            origem.enviar(new Evento.Erro("Você precisa entrar antes de usar o chat. "
+                    + "Use /login nome senha ou crie uma conta com /register nome senha."));
             return;
         }
         try {
@@ -142,6 +180,43 @@ public class CommandService {
     private static IllegalArgumentException usoDoHistorico() {
         return new IllegalArgumentException("Uso: /history [quantidade], com a quantidade de 1 a "
                 + HISTORICO_MAXIMO + ". Exemplo: /history 10");
+    }
+
+    private void criarConta(ClienteHandler origem, String argumentos) {
+        exigirSemLogin(origem);
+        String[] dados = nomeESenha(argumentos, "/register nome senha");
+        Usuario usuario = auth.registrar(dados[0], dados[1]);
+        chat.entrar(origem, usuario);
+    }
+
+    private void entrarComConta(ClienteHandler origem, String argumentos) {
+        exigirSemLogin(origem);
+        String[] dados = nomeESenha(argumentos, "/login nome senha");
+        Usuario usuario = auth.autenticar(dados[0], dados[1]);
+        if (registry.buscarPorUsuario(usuario.nome()).isPresent()) {
+            throw new IllegalArgumentException("O usuário '" + usuario.nome()
+                    + "' já está conectado em outra sessão. Feche a outra sessão e tente de novo.");
+        }
+        chat.entrar(origem, usuario);
+    }
+
+    private static void exigirSemLogin(ClienteHandler origem) {
+        origem.usuario().ifPresent(u -> {
+            throw new IllegalArgumentException("Você já está conectado como " + u.nome()
+                    + ". Use /quit para sair e entrar com outra conta.");
+        });
+    }
+
+    /** Separa "nome senha com espaços" em nome e senha (a senha é o resto da linha). */
+    private static String[] nomeESenha(String argumentos, String uso) {
+        int espaco = indiceDoEspaco(argumentos);
+        String nome = espaco < 0 ? argumentos : argumentos.substring(0, espaco);
+        String senha = espaco < 0 ? "" : argumentos.substring(espaco).strip();
+        if (nome.isEmpty() || senha.isEmpty()) {
+            throw new IllegalArgumentException("Uso: " + uso + ". Exemplo: " + uso.replace("nome", "ana")
+                    .replace("senha", "minhasenha"));
+        }
+        return new String[] {nome, senha};
     }
 
     private void privada(ClienteHandler origem, String argumentos) {

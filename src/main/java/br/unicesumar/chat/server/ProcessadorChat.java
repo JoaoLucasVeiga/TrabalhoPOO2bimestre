@@ -30,18 +30,23 @@ public class ProcessadorChat implements ProcessadorEntrada {
     /** Pede o nome de usuário ao cliente que acabou de conectar. */
     @Override
     public void aoConectar(ClienteHandler origem) {
-        origem.enviar(new Evento.Sistema(
-                "Bem-vindo ao chat! Digite o seu nome de usuário para entrar."));
+        origem.enviar(new Evento.Sistema(comandos.exigeAutenticacao()
+                ? "Bem-vindo ao chat! Use /register nome senha para criar uma conta "
+                        + "ou /login nome senha para entrar."
+                : "Bem-vindo ao chat! Digite o seu nome de usuário para entrar."));
     }
 
     /** Identifica o cliente (primeira linha), executa um comando ({@code /...}) ou envia uma mensagem. */
     @Override
     public void aoReceber(ClienteHandler origem, String linha) {
         try {
-            if (origem.usuario().isEmpty()) {
+            if (origem.usuario().isEmpty() && !comandos.exigeAutenticacao()) {
                 identificar(origem, linha.strip());
             } else if (CommandService.ehComando(linha)) {
                 comandos.executar(origem, linha);
+            } else if (origem.usuario().isEmpty()) {
+                throw new IllegalArgumentException("Você ainda não entrou no chat. "
+                        + "Use /login nome senha ou crie uma conta com /register nome senha.");
             } else {
                 chat.enviarMensagem(origem.usuario().get(), origem.sala(), linha);
             }
