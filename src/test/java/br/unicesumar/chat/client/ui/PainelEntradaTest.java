@@ -146,4 +146,45 @@ class PainelEntradaTest {
         assertThrows(NullPointerException.class, () -> new PainelEntrada(tema, null));
         assertThrows(NullPointerException.class, () -> new PainelEntrada(null, s -> { }));
     }
+
+    // ---------- cores (o campo e o botão não podem ficar no cinza padrão do FlatLaf) ----------
+
+    @Test
+    void campoUsaAsCoresDoTemaNosDoisModos() {
+        for (Modo modo : Modo.values()) {
+            Tema t = new Tema(modo);
+            PainelEntrada p = new PainelEntrada(t, texto -> { });
+            Tema.Paleta cores = t.paleta();
+            assertEquals(cores.superficie(), p.campo().getBackground(), "fundo do campo em " + modo);
+            assertEquals(cores.texto(), p.campo().getForeground(), "texto do campo em " + modo);
+            assertEquals(cores.texto(), p.campo().getCaretColor(), "cursor do campo em " + modo);
+        }
+    }
+
+    @Test
+    void botaoEnviarHabilitadoUsaACorDeDestaqueEDesabilitadoNao() {
+        for (Modo modo : Modo.values()) {
+            Tema t = new Tema(modo);
+            PainelEntrada p = new PainelEntrada(t, texto -> { });
+            Tema.Paleta cores = t.paleta();
+            p.campo().setText("oi");
+            assertEquals(cores.destaque(), p.botaoEnviar().getBackground(), "fundo habilitado em " + modo);
+            assertEquals(cores.textoSobreDestaque(), p.botaoEnviar().getForeground(), "texto habilitado em " + modo);
+            p.campo().setText("");
+            assertFalse(p.botaoEnviar().isEnabled());
+            assertNotEquals(cores.destaque(), p.botaoEnviar().getBackground(),
+                    "desabilitado precisa parecer desabilitado em " + modo);
+        }
+    }
+
+    @Test
+    void trocarDeTemaReaplicaAsCoresDoCampoEDoBotao() {
+        Tema t = new Tema(Modo.CLARO);
+        PainelEntrada p = new PainelEntrada(t, texto -> { });
+        p.campo().setText("oi");
+        t.alternar();
+        Tema.Paleta escura = t.paleta();
+        assertEquals(escura.superficie(), p.campo().getBackground());
+        assertEquals(escura.destaque(), p.botaoEnviar().getBackground());
+    }
 }

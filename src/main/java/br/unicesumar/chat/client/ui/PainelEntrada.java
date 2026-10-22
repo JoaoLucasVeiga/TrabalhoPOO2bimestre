@@ -99,6 +99,9 @@ public class PainelEntrada extends JPanel {
     private void aplicarTema() {
         Tema.Paleta p = tema.paleta();
         setBackground(p.fundo());
+        campo.setBackground(p.superficie());
+        campo.setForeground(p.texto());
+        campo.setCaretColor(p.texto());
         campo.setFont(tema.fonteCorpo());
         contador.setFont(tema.fontePequena());
         botaoEnviar.setFont(tema.fonteCorpo());
@@ -110,7 +113,10 @@ public class PainelEntrada extends JPanel {
         contador.setText(tamanho + "/" + LIMITE);
         Tema.Paleta p = tema.paleta();
         contador.setForeground(tamanho >= LIMITE_DE_ALERTA ? p.erro() : p.textoSecundario());
-        botaoEnviar.setEnabled(habilitado && !campo.getText().isBlank());
+        boolean podeEnviar = habilitado && !campo.getText().isBlank();
+        botaoEnviar.setEnabled(podeEnviar);
+        botaoEnviar.setBackground(podeEnviar ? p.destaque() : p.superficie());
+        botaoEnviar.setForeground(podeEnviar ? p.textoSobreDestaque() : p.textoSecundario());
     }
 
     /** Envia o texto do campo (se não estiver vazio) e limpa o campo. */
