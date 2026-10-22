@@ -241,7 +241,7 @@ Chat desconectado:
 ## Estado dos testes e limitações
 
 - 905 testes. Sem tela, os 17 testes de janela são ignorados; com `xvfb-run -a mvn test` todos rodam.
-- **Um teste está vermelho:** `SalaServiceTest.falhaAoBuscarOHistoricoNaoMudaASalaNemAvisaNinguem`. O repositório falso do teste só falha ao gravar, mas o cenário pede falha ao ler. O código está correto; o teste não foi alterado por decisão do autor.
+- Todos os testes passam. O teste da sala (`SalaServiceTest.falhaAoBuscarOHistoricoNaoMudaASalaNemAvisaNinguem`) usava um repositório falso que só falhava ao gravar, e o cenário pede falha ao ler. O defeito era do teste e foi corrigido com um repositório falso que falha na leitura.
 - A senha trafega em texto puro, porque não há TLS. O hash PBKDF2 protege só o que fica gravado no banco.
 - Quando se está lendo mensagens antigas, a janela não avisa que chegaram mensagens novas.
 - Cliente que some sem aviso só é detectado pela fila de escrita ou pelo TCP (não há keep-alive).

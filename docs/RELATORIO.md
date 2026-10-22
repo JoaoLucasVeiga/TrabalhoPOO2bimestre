@@ -81,7 +81,6 @@ Um erro da IA que peguei: ela afirmou "8 rodadas sem falha" sem ter contado. Pas
 ## 5. Limitações
 
 - A senha trafega sem criptografia, porque não há TLS. O hash PBKDF2 com salt protege só o armazenamento.
-- Um teste está vermelho: `SalaServiceTest`, linha 118. O repositório falso só falha ao gravar, e o cenário exige falha ao ler. O código está correto. Não alterei o teste.
 - Não há keep-alive: um cliente que some sem aviso só é notado pela fila ou pelo TCP.
 - A janela não avisa de mensagens novas quando se lê o histórico antigo.
 - `CommandService` e `ChatService` são as maiores classes e estão no limite do tamanho aceitável.

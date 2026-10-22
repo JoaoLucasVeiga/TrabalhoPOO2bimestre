@@ -111,7 +111,7 @@ class SalaServiceTest {
 
     @Test
     void falhaAoBuscarOHistoricoNaoMudaASalaNemAvisaNinguem() {
-        MensagemRepository quebrado = new ChatServicePrivadaTest.RepositorioQuebrado();
+        MensagemRepository quebrado = new RepositorioQueFalhaAoLer();
         ChatService servico = new ChatService(quebrado, registry, Clock.systemDefaultZone());
         ClienteFalso bia = ClienteFalso.identificado(registry, "bia");
         SalaService comFalha = new SalaService(servico, registry);
@@ -173,5 +173,18 @@ class SalaServiceTest {
     void construtorRejeitaDependenciasNulas() {
         assertThrows(NullPointerException.class, () -> new SalaService(null, registry));
         assertThrows(NullPointerException.class, () -> new SalaService(chat, null));
+    }
+
+    /** Grava normalmente, mas falha ao buscar o histórico (o cenário que o teste acima exige). */
+    private static final class RepositorioQueFalhaAoLer implements MensagemRepository {
+        @Override
+        public Mensagem salvar(Mensagem m) {
+            return m;
+        }
+
+        @Override
+        public List<Mensagem> buscarUltimas(String sala, int quantidade) {
+            throw new RepositorioException("Não foi possível ler o histórico.", null);
+        }
     }
 }

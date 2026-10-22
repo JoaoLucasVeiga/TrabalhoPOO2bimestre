@@ -76,13 +76,13 @@ A condição de corrida em si está demonstrada de forma isolada em `src/test/ja
 | Broadcast sem perder nem corromper | 1,2 | 1,2 | `ClientRegistry.transmitir`:127, `ChatService.enviarMensagem`:47. Testes: 8 threads, `@RepeatedTest(10)`, ordem igual para todos; clientes entrando e saindo durante o envio; cliente lento isolado. | Gargalo do lock durante a gravação (risco R1 acima). |
 | Persistência JDBC | 1,0 | 1,0 | Salvar e recuperar no `JdbcMensagemRepository`, mesmo contrato de testes da versão em memória, histórico sobrevive a reiniciar o servidor (`ServidorJdbcIntegracaoTest`). | Nada. |
 | Pacotes e responsabilidades | 0,5 | 0,4 | Pacotes como em `AGENTS.md`, dependências verificadas na seção 3. | `CommandService` e `ChatService` extensas. |
-| Testes unitários | 0,5 | **0,4** | 905 testes; 904 passam (17 deles precisam de tela e rodam com `xvfb-run -a mvn test`). Contrato compartilhado entre memória e JDBC; concorrência sem `Thread.sleep`. | **1 teste está vermelho** (`SalaServiceTest.falhaAoBuscarOHistoricoNaoMudaASalaNemAvisaNinguem`, linha 118): o repositório falso do teste só falha ao gravar, mas o cenário exige falha ao ler. O código está correto. Eu não alterei o teste por decisão do autor; quem rodar `mvn test` verá essa falha. |
-| Código e relatório | 0,5 | 0,2 | Código sem método público sem Javadoc (`mvn javadoc:javadoc` sem avisos "no comment"). | README, relatório, roteiro do vídeo e prints ainda não foram feitos (etapa k). |
-| **Total estimado hoje** | 5,0 | **4,5** | | Com a etapa (k) e o teste da sala consertado, a estimativa sobe para cerca de 4,9. |
+| Testes unitários | 0,5 | **0,5** | 905 testes, todos passam (17 deles precisam de tela e rodam com `xvfb-run -a mvn test`). Contrato compartilhado entre memória e JDBC; concorrência sem `Thread.sleep`. | Nada. O teste da sala usava um repositório falso que só falhava ao gravar; foi corrigido com um que falha ao ler. |
+| Código e relatório | 0,5 | 0,5 | Código sem método público sem Javadoc (`mvn javadoc:javadoc` sem avisos "no comment"). | Nada. README, relatório, roteiro do vídeo e prints foram feitos na etapa (k). |
+| **Total estimado hoje** | 5,0 | **4,9** | | Os 0,1 que faltam são de pacotes: `CommandService` e `ChatService` extensas. |
 
 ### Os 3 pontos mais fracos e o que foi feito
 
-1. **Teste vermelho.** Não foi corrigido, por decisão do autor. O conserto é pequeno (criar um repositório falso que falhe na leitura e usá-lo nesse teste).
+1. **Teste vermelho.** Corrigido com autorização do autor: o defeito era do repositório falso do teste, que não falhava na leitura. O código do servidor não mudou.
 2. **Relatório e README ausentes.** Fazem parte da etapa (k); não foram antecipados aqui.
 3. **Exceções engolidas.** Corrigido nos dois lugares (`ConexaoSocket.java:94`, `AuthService.java:148`), com teste novo para o segundo.
 

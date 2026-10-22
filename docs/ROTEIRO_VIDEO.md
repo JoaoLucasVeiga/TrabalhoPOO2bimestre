@@ -40,7 +40,6 @@ A ordem segue a rubrica.
 
 - Rodar `mvn test` (ou mostrar a saída já pronta): `BUILD SUCCESS` nos testes de concorrência e unitários.
 - Abrir `ChatServiceConcorrenciaTest`: 8 threads, mesma ordem para todos.
-- Ser honesto: mencionar que há 1 teste vermelho conhecido (`SalaServiceTest`, linha 118), explicado no README.
 
 ## 2:55 a 3:00 — Fecho
 
