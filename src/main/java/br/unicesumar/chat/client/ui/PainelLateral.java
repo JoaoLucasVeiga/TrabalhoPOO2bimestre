@@ -156,6 +156,8 @@ public class PainelLateral extends JPanel {
     private void aplicarTema() {
         Tema.Paleta p = tema.paleta();
         setBackground(p.superficie());
+        rolagemDeSalas.setBorder(null); // o FlatLaf reinstala a borda padrão ao trocar de visual
+        rolagemDeUsuarios.setBorder(null);
         for (JLabel titulo : List.of(tituloDeSalas, tituloDeUsuarios)) {
             titulo.setFont(tema.fontePequena().deriveFont(Font.BOLD));
             titulo.setForeground(p.textoSecundario());
@@ -247,6 +249,16 @@ public class PainelLateral extends JPanel {
     /** O botão "Nova sala". */
     public JButton botaoNovaSala() {
         return botaoNovaSala;
+    }
+
+    /** Rolagem da lista de salas. */
+    public JScrollPane rolagemDeSalas() {
+        return rolagemDeSalas;
+    }
+
+    /** Rolagem da lista de usuários. */
+    public JScrollPane rolagemDeUsuarios() {
+        return rolagemDeUsuarios;
     }
 
     /** A lista de salas. */

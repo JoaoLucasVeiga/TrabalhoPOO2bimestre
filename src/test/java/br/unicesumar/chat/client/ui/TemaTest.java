@@ -167,4 +167,16 @@ class TemaTest {
         tema.instalarLookAndFeel();
         assertTrue(UIManager.getLookAndFeel().getName().contains("Dark"), UIManager.getLookAndFeel().getName());
     }
+
+    @Test
+    void instalarOLookAndFeelAvisaOsOuvintesDepoisDeInstalarParaQueElesReajustemOQueOVisualDesfez() {
+        Tema tema = new Tema(Modo.ESCURO);
+        java.util.List<String> visualNoMomentoDoAviso = new java.util.ArrayList<>();
+        tema.aoMudar(() -> visualNoMomentoDoAviso.add(UIManager.getLookAndFeel().getName()));
+        UIManager.getLookAndFeel(); // o visual anterior pode ser qualquer um
+        tema.instalarLookAndFeel();
+        assertEquals(1, visualNoMomentoDoAviso.size());
+        assertTrue(visualNoMomentoDoAviso.get(0).contains("Dark"),
+                "o aviso veio antes de instalar o visual: " + visualNoMomentoDoAviso.get(0));
+    }
 }

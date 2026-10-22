@@ -48,6 +48,7 @@ public class PainelMensagens extends JScrollPane {
     }
 
     private void aplicarTema() {
+        setBorder(null); // o FlatLaf reinstala a borda padrão ao trocar de visual
         conteudo.setBackground(tema.paleta().fundo());
         getViewport().setBackground(tema.paleta().fundo());
         linhas.forEach(LinhaMensagem::aplicarTema);

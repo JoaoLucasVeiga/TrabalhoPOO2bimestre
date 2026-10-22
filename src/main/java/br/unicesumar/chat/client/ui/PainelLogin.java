@@ -165,6 +165,7 @@ public class PainelLogin extends JPanel {
         }
         for (JTextField campo : List.of(campoServidor, campoPorta, campoUsuario, campoSenha)) {
             campo.setFont(tema.fonteCorpo());
+            campo.setMinimumSize(campo.getPreferredSize()); // nenhum campo é cortado quando a janela aperta
         }
         botaoEntrar.setFont(tema.fonteCorpo());
         botaoCriarConta.setFont(tema.fonteCorpo());

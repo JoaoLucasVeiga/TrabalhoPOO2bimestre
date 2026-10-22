@@ -165,6 +165,46 @@ class LinhaMensagemTest {
     }
 
     @Test
+    void textoQueCabeNaLarguraMaximaNaoQuebraEmDuasLinhas() {
+        LinhaMensagem umaLinha = new LinhaMensagem(tema, publica("bia", "oi", false));
+        LinhaMensagem frase = new LinhaMensagem(tema,
+                publica("bia", "Oi, pessoal! Alguém já terminou o trabalho de POO?", false));
+        LinhaMensagem aviso = new LinhaMensagem(tema, MensagemTela.sistema("bia entrou na sala geral.", T));
+        umaLinha.definirLarguraMaxima(600);
+        frase.definirLarguraMaxima(600);
+        aviso.definirLarguraMaxima(600);
+        assertEquals(umaLinha.getPreferredSize().height, frase.getPreferredSize().height,
+                "a frase cabe em 600 px e deveria ficar em uma linha");
+        int alturaDeUmaLinhaDeAviso = new LinhaMensagem(tema, MensagemTela.sistema("x", T)).getPreferredSize().height;
+        assertEquals(alturaDeUmaLinhaDeAviso, aviso.getPreferredSize().height,
+                "o aviso do sistema cabe em uma linha");
+    }
+
+    @Test
+    void oBalaoTemExatamenteALarguraDoTextoMaisAsMargensQuandoCabe() {
+        LinhaMensagem l = new LinhaMensagem(tema, publica("bia", "uma frase curta mas com algum comprimento", false));
+        l.definirLarguraMaxima(700);
+        int largura = l.getPreferredSize().width;
+        l.definirLarguraMaxima(900);
+        assertEquals(largura, l.getPreferredSize().width, "com folga, a largura não depende do limite");
+    }
+
+    @Test
+    void aMargemInternaDoTextoEZeroParaCabecalhoETextoFicaremAlinhados() {
+        LinhaMensagem l = new LinhaMensagem(tema, publica("bia", "x", false));
+        assertEquals(new java.awt.Insets(0, 0, 0, 0), l.margemDoTexto());
+    }
+
+    @Test
+    void depoisDeReaplicarOTemaAMargemContinuaZero() {
+        LinhaMensagem l = new LinhaMensagem(tema, publica("bia", "x", false));
+        tema.alternar();
+        tema.instalarLookAndFeel();
+        l.aplicarTema();
+        assertEquals(new java.awt.Insets(0, 0, 0, 0), l.margemDoTexto());
+    }
+
+    @Test
     void mensagemNulaOuTemaNuloLancaExcecao() {
         assertThrows(NullPointerException.class, () -> new LinhaMensagem(null, MensagemTela.sistema("x", T)));
         assertThrows(NullPointerException.class, () -> new LinhaMensagem(tema, null));

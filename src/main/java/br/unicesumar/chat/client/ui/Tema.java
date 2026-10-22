@@ -146,7 +146,11 @@ public final class Tema {
         return new Font(Font.SANS_SERIF, Font.BOLD, TAMANHO_TITULO);
     }
 
-    /** Instala o FlatLaf claro ou escuro (conforme o modo) com a cor de destaque do tema. */
+    /**
+     * Instala o FlatLaf claro ou escuro (conforme o modo) com a cor de destaque do tema e, depois,
+     * avisa os ouvintes. A ordem importa: trocar o visual reinstala bordas e margens padrão, e quem
+     * ajusta esses detalhes (em {@link #aoMudar}) precisa fazê-lo por último.
+     */
     public void instalarLookAndFeel() {
         Color destaque = paleta().destaque();
         FlatLaf.setGlobalExtraDefaults(Map.of("@accentColor",
@@ -157,5 +161,6 @@ public final class Tema {
             FlatDarkLaf.setup();
         }
         FlatLaf.updateUI();
+        ouvintes.forEach(Runnable::run);
     }
 }

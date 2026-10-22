@@ -5,6 +5,7 @@ import br.unicesumar.chat.client.controller.ChatView;
 import br.unicesumar.chat.client.controller.EstadoConexao;
 import br.unicesumar.chat.client.controller.MensagemTela;
 import br.unicesumar.chat.client.controller.MensagemTela.Tipo;
+import com.formdev.flatlaf.FlatClientProperties;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.GridBagConstraints;
@@ -26,7 +27,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.AbstractAction;
 import javax.swing.BorderFactory;
-import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JFileChooser;
@@ -164,13 +164,13 @@ public class PainelChat extends JPanel implements ChatView {
         barra.addSeparator();
         barra.add(botaoSair);
 
-        JPanel norte = new JPanel();
-        norte.setLayout(new BoxLayout(norte, BoxLayout.Y_AXIS));
+        for (JButton b : List.of(botaoHistorico, botaoBuscar, botaoExportar, botaoSair)) {
+            b.putClientProperty(FlatClientProperties.BUTTON_TYPE, FlatClientProperties.BUTTON_TYPE_ROUND_RECT);
+        }
+        JPanel norte = new JPanel(new BorderLayout());
         norte.setOpaque(false);
-        topo.setAlignmentX(Component.LEFT_ALIGNMENT);
-        barra.setAlignmentX(Component.LEFT_ALIGNMENT);
-        norte.add(topo);
-        norte.add(barra);
+        norte.add(topo, BorderLayout.NORTH);
+        norte.add(barra, BorderLayout.SOUTH);
 
         JPanel centro = new JPanel(new BorderLayout());
         centro.setOpaque(false);
@@ -206,6 +206,10 @@ public class PainelChat extends JPanel implements ChatView {
         topo.setBackground(p.superficie());
         topo.setOpaque(true);
         topo.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, p.borda()));
+        barra.setBackground(p.superficie());
+        barra.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(0, 0, 1, 0, p.borda()),
+                BorderFactory.createEmptyBorder(Tema.espaco(1) / 2, Tema.espaco(1), Tema.espaco(1) / 2, Tema.espaco(1))));
         titulo.setFont(tema.fonteTitulo());
         titulo.setForeground(p.textoDestaque());
         resumoDeUsuarios.setFont(tema.fonteCorpo());
@@ -552,7 +556,17 @@ public class PainelChat extends JPanel implements ChatView {
         return entrada.campo();
     }
 
-    /** Nome da sala em maiúsculas e minúsculas como no título. */
+    /** Barra de ferramentas (Histórico, Buscar, Exportar, Sair). */
+    public JToolBar barra() {
+        return barra;
+    }
+
+    /** Faixa do topo (sala, usuários online, conexão e tema). */
+    public JPanel topo() {
+        return topo;
+    }
+
+    /** Título com o nome da sala. */
     public JLabel titulo() {
         return titulo;
     }

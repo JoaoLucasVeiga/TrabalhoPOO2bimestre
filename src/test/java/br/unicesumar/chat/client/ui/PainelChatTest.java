@@ -373,6 +373,22 @@ class PainelChatTest {
         assertTrue(painel.botaoSair().getToolTipText().contains("Ctrl+Q"));
     }
 
+    @Test
+    void barraDeFerramentasOcupaALarguraTodaDaJanela() throws Exception {
+        edt();
+        LayoutDeTeste.forcar(painel, 1000, 680);
+        assertEquals(1000, painel.barra().getWidth());
+        assertEquals(1000, painel.topo().getWidth());
+    }
+
+    @Test
+    void osBotoesDaBarraTemAparenciaDeBotao() throws Exception {
+        edt();
+        for (var b : List.of(painel.botaoHistorico(), painel.botaoBuscar(), painel.botaoExportar(), painel.botaoSair())) {
+            assertEquals("roundRect", b.getClientProperty("JButton.buttonType"), b.getText());
+        }
+    }
+
     // ---------- nada fora da EDT ----------
 
     @Test

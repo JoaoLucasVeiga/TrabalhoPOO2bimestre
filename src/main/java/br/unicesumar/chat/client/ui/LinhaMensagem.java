@@ -5,7 +5,6 @@ import br.unicesumar.chat.client.controller.MensagemTela.Tipo;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
-import java.awt.FontMetrics;
 import java.awt.Font;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -31,6 +30,8 @@ public class LinhaMensagem extends JPanel {
     private static final DateTimeFormatter HORA_MINUTO = DateTimeFormatter.ofPattern("HH:mm");
     private static final int RAIO = 16;
     private static final int LARGURA_PADRAO = 480;
+    /** Mede a largura do texto sem quebra de linha (só é usado na EDT, sob lock por segurança). */
+    private static final JTextArea MEDIDOR = new JTextArea();
 
     /** Lado da conversa em que a linha aparece. */
     public enum Alinhamento { ESQUERDA, DIREITA, CENTRO }
@@ -121,12 +122,25 @@ public class LinhaMensagem extends JPanel {
         return balao.cabecalho.getFont();
     }
 
-    /** Reaplica cores e fontes do tema. */
+    /** Margem interna da área de texto (zero: o cabeçalho e o texto ficam alinhados). */
+    public Insets margemDoTexto() {
+        return balao.corpo.getMargin();
+    }
+
+    /**
+     * Reaplica cores, fontes, margem e borda. Trocar o visual do FlatLaf reinstala as margens padrão
+     * dos componentes, por isso isto precisa rodar a cada troca de tema.
+     */
     public void aplicarTema() {
         balao.corpo.setFont(tema.fonteCorpo());
         balao.cabecalho.setFont(tema.fontePequena());
+        balao.corpo.setMargin(new Insets(0, 0, 0, 0));
+        balao.corpo.setBorder(null);
         balao.corpo.setForeground(corDoTexto());
         balao.cabecalho.setForeground(corDoTexto());
+        balao.limparCache();
+        balao.invalidate();
+        invalidate();
         balao.repaint();
     }
 
@@ -137,6 +151,7 @@ public class LinhaMensagem extends JPanel {
         }
         if (pixels != larguraMaxima) {
             larguraMaxima = pixels;
+            balao.limparCache();
             balao.invalidate();
             invalidate();
         }
@@ -152,6 +167,7 @@ public class LinhaMensagem extends JPanel {
         private static final long serialVersionUID = 1L;
         private final JLabel cabecalho = new JLabel();
         private final JTextArea corpo = new JTextArea();
+        private Dimension tamanhoEmCache;
 
         Balao() {
             super(new BorderLayout());
@@ -173,24 +189,36 @@ public class LinhaMensagem extends JPanel {
             add(corpo, BorderLayout.CENTER);
         }
 
+        void limparCache() {
+            tamanhoEmCache = null;
+        }
+
+        /** Largura do texto sem quebra, medida pelo mesmo motor de texto que o desenha. */
+        private int larguraNatural() {
+            synchronized (MEDIDOR) {
+                MEDIDOR.setLineWrap(false);
+                MEDIDOR.setFont(corpo.getFont());
+                MEDIDOR.setMargin(new Insets(0, 0, 0, 0));
+                MEDIDOR.setBorder(null);
+                MEDIDOR.setText(mensagem.texto());
+                int texto = MEDIDOR.getPreferredSize().width;
+                int titulo = cabecalho.isVisible() ? cabecalho.getPreferredSize().width : 0;
+                return Math.max(Math.max(texto, titulo), 1);
+            }
+        }
+
         @Override
         public Dimension getPreferredSize() {
-            Insets in = getInsets();
-            FontMetrics fm = corpo.getFontMetrics(corpo.getFont());
-            int natural = 0;
-            for (String linha : mensagem.texto().split("\n", -1)) {
-                natural = Math.max(natural, fm.stringWidth(linha));
+            if (tamanhoEmCache == null) {
+                Insets in = getInsets();
+                int maxInterna = Math.max(40, larguraMaxima - in.left - in.right);
+                int largura = Math.min(larguraNatural(), maxInterna);
+                corpo.setSize(largura, 1); // com quebra de linha, a altura preferida depende da largura
+                int altura = corpo.getPreferredSize().height
+                        + (cabecalho.isVisible() ? cabecalho.getPreferredSize().height : 0);
+                tamanhoEmCache = new Dimension(largura + in.left + in.right, altura + in.top + in.bottom);
             }
-            if (cabecalho.isVisible()) {
-                natural = Math.max(natural, cabecalho.getFontMetrics(cabecalho.getFont())
-                        .stringWidth(cabecalho.getText()));
-            }
-            int maxInterna = Math.max(40, larguraMaxima - in.left - in.right);
-            int largura = Math.min(Math.max(natural, 1), maxInterna);
-            corpo.setSize(largura, 1); // com quebra de linha, a altura preferida depende da largura
-            int altura = corpo.getPreferredSize().height
-                    + (cabecalho.isVisible() ? cabecalho.getPreferredSize().height : 0);
-            return new Dimension(largura + in.left + in.right, altura + in.top + in.bottom);
+            return new Dimension(tamanhoEmCache);
         }
 
         @Override

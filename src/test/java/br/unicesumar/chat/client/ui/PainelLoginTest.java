@@ -164,6 +164,16 @@ class PainelLoginTest {
     }
 
     @Test
+    void oCampoDaPortaNaoEncolheQuandoOErroApareceNemQuandoAJanelaEEstreita() {
+        java.awt.Dimension tamanhoSemErro = painel.getPreferredSize();
+        painel.mostrarErro("Não foi possível conectar a localhost:5000. Verifique se o servidor está em execução.");
+        LayoutDeTeste.forcar(painel, tamanhoSemErro.width, tamanhoSemErro.height + 60);
+        assertTrue(painel.campoPorta().getWidth() >= painel.campoPorta().getPreferredSize().width,
+                "porta com " + painel.campoPorta().getWidth() + " px de " + painel.campoPorta().getPreferredSize().width);
+        assertTrue(painel.campoServidor().getWidth() >= painel.campoServidor().getMinimumSize().width);
+    }
+
+    @Test
     void argumentosNulosLancamExcecao() {
         assertThrows(NullPointerException.class, () -> new PainelLogin(null, (h, p, u, s, c) -> { }));
         assertThrows(NullPointerException.class, () -> new PainelLogin(tema, null));
