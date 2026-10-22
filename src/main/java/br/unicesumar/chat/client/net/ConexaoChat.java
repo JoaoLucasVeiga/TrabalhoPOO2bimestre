@@ -33,6 +33,14 @@ public interface ConexaoChat {
      */
     Evento receber() throws IOException;
 
+    /**
+     * Limita quanto {@link #receber()} espera por dados. Zero (padrão) espera sem limite.
+     * Estourado o limite, {@code receber} lança {@link java.net.SocketTimeoutException}.
+     * Adaptadores sem rede podem ignorar.
+     */
+    default void definirTempoDeEspera(int milissegundos) {
+    }
+
     /** Fecha a conexão e destrava quem está em {@link #receber()}. Pode ser chamado várias vezes. */
     void fechar();
 

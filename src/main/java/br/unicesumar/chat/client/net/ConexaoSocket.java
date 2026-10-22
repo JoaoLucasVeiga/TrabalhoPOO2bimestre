@@ -26,6 +26,7 @@ public class ConexaoSocket implements ConexaoChat {
     private volatile PrintWriter saida;
     private volatile boolean aberta;
     private volatile boolean fechada;
+    private volatile int tempoDeEspera;
 
     /** Cria a conexão (ainda fechada) para o servidor indicado. */
     public ConexaoSocket(String host, int porta) {
@@ -43,6 +44,7 @@ public class ConexaoSocket implements ConexaoChat {
             throw new IOException("Não foi possível conectar a " + host + ":" + porta
                     + ". Verifique se o servidor está em execução.", e);
         }
+        novo.setSoTimeout(tempoDeEspera);
         socket = novo;
         entrada = new BufferedReader(new InputStreamReader(novo.getInputStream(), StandardCharsets.UTF_8));
         saida = new PrintWriter(new OutputStreamWriter(novo.getOutputStream(), StandardCharsets.UTF_8));
@@ -80,6 +82,23 @@ public class ConexaoSocket implements ConexaoChat {
             throw e;
         }
         return linha == null ? null : Protocolo.decodificar(linha);
+    }
+
+    /** {@inheritDoc} Usa {@code SO_TIMEOUT} do socket; pode ser chamado antes de abrir (vale ao abrir). */
+    @Override
+    public void definirTempoDeEspera(int milissegundos) {
+        if (milissegundos < 0) {
+            throw new IllegalArgumentException("O tempo de espera não pode ser negativo.");
+        }
+        tempoDeEspera = milissegundos;
+        Socket s = socket;
+        if (s != null && !fechada) {
+            try {
+                s.setSoTimeout(milissegundos);
+            } catch (IOException e) {
+                LOG.log(Level.WARNING, "Não foi possível definir o tempo de espera: {0}", e.getMessage());
+            }
+        }
     }
 
     @Override

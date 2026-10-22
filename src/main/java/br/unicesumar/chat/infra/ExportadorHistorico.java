@@ -67,4 +67,34 @@ public class ExportadorHistorico {
         }
         return arquivo;
     }
+
+    /**
+     * Grava as linhas no arquivo que o usuário escolheu (substitui o conteúdo se ele já existir; a
+     * confirmação é responsabilidade de quem escolhe o arquivo). Cria as pastas que faltarem.
+     * Estático e {@code synchronized}: duas gravações no mesmo arquivo nunca se misturam.
+     *
+     * @param sala nome da sala, só para o cabeçalho (mesma validação de {@link #exportar})
+     * @throws IllegalArgumentException se o nome da sala for inválido
+     * @throws IOException              se o arquivo não puder ser gravado
+     */
+    public static synchronized Path exportarPara(Path arquivo, String sala, List<String> linhas, Clock relogio)
+            throws IOException {
+        Objects.requireNonNull(arquivo, "arquivo");
+        Objects.requireNonNull(linhas, "linhas");
+        Objects.requireNonNull(relogio, "relogio");
+        String nomeDaSala = new Sala(sala).nome();
+        Path pasta = arquivo.toAbsolutePath().getParent();
+        if (pasta != null) {
+            Files.createDirectories(pasta);
+        }
+        LocalDateTime agora = LocalDateTime.now(relogio);
+        try (BufferedWriter saida = Files.newBufferedWriter(arquivo, StandardCharsets.UTF_8)) {
+            saida.write("Histórico da sala " + nomeDaSala + "\n");
+            saida.write("Exportado em " + agora.format(CABECALHO) + "\n\n");
+            for (String linha : linhas) {
+                saida.write(linha + "\n");
+            }
+        }
+        return arquivo;
+    }
 }
