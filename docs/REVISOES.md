@@ -1,6 +1,6 @@
 # Revisões do projeto
 
-Revisões feitas em modo revisor ao fim da etapa (i): apontam o que existe no código, com arquivo e linha, e dizem o que foi corrigido e o que ficou como decisão. As linhas se referem a `src/main/java/br/unicesumar/chat/`. A revisão de arquitetura será repetida depois da interface gráfica, porque o `ChatController` ainda não existe.
+Revisões feitas em modo revisor ao fim da etapa (i): apontam o que existe no código, com arquivo e linha, e dizem o que foi corrigido e o que ficou como decisão. As linhas se referem a `src/main/java/br/unicesumar/chat/`. A revisão de arquitetura foi repetida depois da interface gráfica (seção 3), e a seção 5 traz a revisão de usabilidade.
 
 ## 1. Concorrência
 
@@ -60,12 +60,12 @@ A condição de corrida em si está demonstrada de forma isolada em `src/test/ja
 | Regra do `AGENTS.md` | Resultado | Como foi verificado |
 |---|---|---|
 | `model` sem `java.sql`, `java.io`, `java.net` ou `javax.swing` | **Nenhuma violação** | Os únicos imports do pacote `model` são `java.time.*`, `java.util.*` e `java.util.regex.Pattern`. |
-| `ChatController` sem `javax.swing` | Ainda não aplicável | A classe é da etapa (j). Esta verificação será refeita lá. |
+| `ChatController` sem `javax.swing` | **Cumpre** | Nenhum import de `javax.swing` ou `java.awt` em `client/controller` (verificado depois da interface). O controlador só conhece a interface `ChatView`. |
 | Socket não conhece SQL; repositório não conhece socket | Cumpre | Nenhum SQL fora de `persistence/jdbc`; nenhum `java.net` em `persistence`. |
 | `ChatService` depende da interface, nunca do JDBC | Cumpre | Importa apenas `persistence.MensagemRepository` (`ChatService.java:5`). |
 | Implementação JDBC injetada no `main` | Cumpre | `ServidorMain` é a única classe fora de `persistence.jdbc` que a importa. |
 | `Servidor` e `ClienteHandler` sem SQL nem regra de negócio | Cumpre | Delegam ao `ProcessadorEntrada`. |
-| Cliente (terminal) nunca conhece Repository | Cumpre | Nenhum import de `server` ou `persistence` em `client/`. |
+| Cliente (terminal e gráfico) nunca conhece Repository | Cumpre | Nenhum import de `server` ou `persistence` em `client/`, nem `java.net` em `client/ui`. |
 | Sem God Classes | **Atenção** | `CommandService` (342 linhas) e `ChatService` (204) são as maiores. Cada uma tem uma só responsabilidade (interpretar comandos / regras do chat), mas estão no limite. Dividir mais agora exigiria alterar testes aprovados; fica como ponto de melhoria. |
 
 ## 4. Rubrica (5,0 pontos)
@@ -76,7 +76,7 @@ A condição de corrida em si está demonstrada de forma isolada em `src/test/ja
 | Broadcast sem perder nem corromper | 1,2 | 1,2 | `ClientRegistry.transmitir`:127, `ChatService.enviarMensagem`:47. Testes: 8 threads, `@RepeatedTest(10)`, ordem igual para todos; clientes entrando e saindo durante o envio; cliente lento isolado. | Gargalo do lock durante a gravação (risco R1 acima). |
 | Persistência JDBC | 1,0 | 1,0 | Salvar e recuperar no `JdbcMensagemRepository`, mesmo contrato de testes da versão em memória, histórico sobrevive a reiniciar o servidor (`ServidorJdbcIntegracaoTest`). | Nada. |
 | Pacotes e responsabilidades | 0,5 | 0,4 | Pacotes como em `AGENTS.md`, dependências verificadas na seção 3. | `CommandService` e `ChatService` extensas. |
-| Testes unitários | 0,5 | **0,4** | 617 testes; 616 passam. Contrato compartilhado entre memória e JDBC; concorrência sem `Thread.sleep`. | **1 teste está vermelho** (`SalaServiceTest.falhaAoBuscarOHistoricoNaoMudaASalaNemAvisaNinguem`, linha 118): o repositório falso do teste só falha ao gravar, mas o cenário exige falha ao ler. O código está correto. Eu não alterei o teste por decisão do autor; quem rodar `mvn test` verá essa falha. |
+| Testes unitários | 0,5 | **0,4** | 905 testes; 904 passam (17 deles precisam de tela e rodam com `xvfb-run -a mvn test`). Contrato compartilhado entre memória e JDBC; concorrência sem `Thread.sleep`. | **1 teste está vermelho** (`SalaServiceTest.falhaAoBuscarOHistoricoNaoMudaASalaNemAvisaNinguem`, linha 118): o repositório falso do teste só falha ao gravar, mas o cenário exige falha ao ler. O código está correto. Eu não alterei o teste por decisão do autor; quem rodar `mvn test` verá essa falha. |
 | Código e relatório | 0,5 | 0,2 | Código sem método público sem Javadoc (`mvn javadoc:javadoc` sem avisos "no comment"). | README, relatório, roteiro do vídeo e prints ainda não foram feitos (etapa k). |
 | **Total estimado hoje** | 5,0 | **4,5** | | Com a etapa (k) e o teste da sala consertado, a estimativa sobe para cerca de 4,9. |
 
@@ -87,3 +87,35 @@ A condição de corrida em si está demonstrada de forma isolada em `src/test/ja
 3. **Exceções engolidas.** Corrigido nos dois lugares (`ConexaoSocket.java:94`, `AuthService.java:148`), com teste novo para o segundo.
 
 Também corrigi a demonstração da condição de corrida, que quase não mostrava perda de incrementos porque uma thread terminava antes de a outra começar: agora as threads largam juntas.
+
+## 5. Usabilidade da interface gráfica
+
+Revisão feita com as capturas de tela reais (`docs/prints/`) e com testes. Os achados 1 a 4 foram vistos nas capturas, não pelos testes, e cada um virou um teste novo antes da correção.
+
+| Item | Resultado | Evidência |
+|---|---|---|
+| Contraste mínimo de 4,5:1 | Cumpre, nos dois temas | `TemaTest.todosOsParesTextoFundoTemContrasteMinimoDe4e5NosDoisModos` (16 pares por modo). O azul de destaque do tema escuro dava só 3,45:1 usado como texto; criei a cor `textoDestaque` (7,0:1). |
+| Fonte do corpo de pelo menos 13 pt | Cumpre | `Tema.TAMANHO_CORPO` = 14; testes de fonte em cada painel. Só remetente, horário e legendas usam 12 pt, como pedido ("fonte menor"). |
+| Atalhos | Cumpre | Enter envia (`PainelEntradaTest`) e entra (`PainelLoginTest`); Ctrl+F e Ctrl+Q (`PainelChatTest`, `JanelasGuiTest`); Esc fecha o diálogo de busca; Enter também aciona sala e usuário nas listas. |
+| Mensagens de erro dizem o que houve e o que fazer | Cumpre | Ex.: "Não foi possível conectar a localhost:5000. Verifique se o servidor está em execução."; "A mensagem tem 501 caracteres e o limite é 500. Encurte o texto."; "Você está desconectado do servidor. Entre novamente para continuar." |
+| Ordem de Tab e foco inicial | Cumpre | `OrdemDeFocoTest`; foco inicial em Usuário no login e na caixa de mensagem no chat (`JanelasGuiTest`). Desconectado, a caixa fica desligada e o foco cai no primeiro componente disponível, de propósito. |
+| Nenhuma atualização fora da EDT | Cumpre | `VerificadorDeEdt` (um `RepaintManager` que registra todo `repaint`/`revalidate` fora da EDT): chamar todos os métodos da `ChatView` de uma thread de rede e processar um fluxo completo gera zero violações. Toda chamada de rede passa por `Segundo.plano` (`SwingWorker`). |
+| Layout só com gerenciadores permitidos | Cumpre | 8 `BorderLayout`, 6 `GridBagLayout`, 2 `BoxLayout`; nenhum `setBounds` nem `setLayout(null)`. |
+| Cores e fontes só em `Tema` | Cumpre | Nenhum `new Color`, `new Font` ou constante de cor fora de `Tema.java`. |
+| Estados de botão padronizados | Cumpre | `Botoes` aplica ativo, desabilitado e carregando; `BotoesTest`, `PainelLoginTest`, `PainelBuscaTest`. |
+| Dicas e nomes acessíveis | Cumpre | Todos os botões, campos e listas têm tooltip e nome acessível (testes em cada painel). |
+| Redimensionar | Cumpre | Janela mínima de 800 x 560; os balões quebram em 70% da largura e se rearrumam (`PainelMensagensTest.estreitarAJanela...`). |
+
+### Achados corrigidos
+
+1. **Balões quebravam o texto cedo demais** (a largura era medida de um jeito e o texto desenhado de outro). Passou a medir com o mesmo motor que desenha. Teste: `LinhaMensagemTest.textoQueCabeNaLarguraMaximaNaoQuebraEmDuasLinhas`.
+2. **Trocar de tema desfazia bordas e margens**, porque o FlatLaf as reinstala depois que os componentes tinham sido ajustados. O `Tema` agora avisa os componentes depois de instalar o visual. Testes: `TemaTest.instalarOLookAndFeelAvisaOsOuvintesDepoisDeInstalar...` e `JanelasGuiTest.depoisDeTrocarOTema...`.
+3. **A barra de ferramentas ocupava só metade da largura** e seus botões pareciam texto solto. Testes: `PainelChatTest.barraDeFerramentasOcupaALarguraTodaDaJanela` e `osBotoesDaBarraTemAparenciaDeBotao`.
+4. **O campo Porta era cortado** quando o erro aparecia no login. Teste: `PainelLoginTest.oCampoDaPortaNaoEncolhe...`.
+
+### Limitações que ficam
+
+- Quando o usuário está lendo mensagens antigas e chegam mensagens novas, a janela não rola (como pedido), mas também **não avisa** que há mensagens novas abaixo.
+- Os campos do login não têm mnemônicos (Alt + letra).
+- Os testes de janela rodaram só em Linux com `xvfb`; não foram testados em Windows nem em macOS.
+- A senha digitada trafega sem criptografia (não há TLS), como já descrito na revisão de segurança.
