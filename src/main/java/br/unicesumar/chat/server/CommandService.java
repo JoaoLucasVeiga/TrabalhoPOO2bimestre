@@ -4,6 +4,7 @@ import br.unicesumar.chat.infra.ExportadorHistorico;
 import br.unicesumar.chat.model.Mensagem;
 import br.unicesumar.chat.model.Usuario;
 import br.unicesumar.chat.protocol.Evento;
+import br.unicesumar.chat.protocol.Mensagens;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.LocalDate;
@@ -198,7 +199,7 @@ public class CommandService {
         List<Evento.Msg> mensagens = chat.buscarHistorico(origem.sala(), quantidade).stream()
                 .map(Evento.Msg::de).toList();
         if (mensagens.isEmpty()) {
-            origem.enviar(new Evento.Sistema("Não há mensagens anteriores nesta sala."));
+            origem.enviar(new Evento.Sistema(Mensagens.SEM_HISTORICO));
         } else {
             origem.enviar(new Evento.Historico(mensagens));
         }
@@ -297,7 +298,7 @@ public class CommandService {
         };
         List<Evento.Msg> mensagens = achadas.stream().map(Evento.Msg::de).toList();
         if (mensagens.isEmpty()) {
-            origem.enviar(new Evento.Sistema("Nenhuma mensagem encontrada."));
+            origem.enviar(new Evento.Sistema(Mensagens.SEM_RESULTADO_DE_BUSCA));
         } else {
             origem.enviar(new Evento.Historico(mensagens));
         }

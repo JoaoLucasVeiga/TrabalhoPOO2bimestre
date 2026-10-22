@@ -4,6 +4,7 @@ import br.unicesumar.chat.model.Mensagem;
 import br.unicesumar.chat.model.Usuario;
 import br.unicesumar.chat.persistence.MensagemRepository;
 import br.unicesumar.chat.protocol.Evento;
+import br.unicesumar.chat.protocol.Mensagens;
 import br.unicesumar.chat.model.Sala;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -74,9 +75,8 @@ public class ChatService {
             if (!historico.isEmpty()) {
                 cliente.enviar(new Evento.Historico(historico));
             }
-            cliente.enviar(new Evento.Ok(
-                    "Você entrou como " + usuario.nome() + " na sala " + cliente.sala() + "."));
-            avisarSala(cliente, usuario.nome() + " entrou na sala " + cliente.sala() + ".");
+            cliente.enviar(new Evento.Ok(Mensagens.entrouComo(usuario.nome(), cliente.sala())));
+            avisarSala(cliente, Mensagens.avisoDeEntrada(usuario.nome(), cliente.sala()));
         }
     }
 
@@ -87,7 +87,7 @@ public class ChatService {
     public void sair(ClienteHandler cliente) {
         cliente.usuario().ifPresent(usuario -> {
             synchronized (ordem) {
-                avisarSala(cliente, usuario.nome() + " saiu da sala " + cliente.sala() + ".");
+                avisarSala(cliente, Mensagens.avisoDeSaida(usuario.nome(), cliente.sala()));
             }
         });
     }
@@ -154,13 +154,13 @@ public class ChatService {
             }
             List<Evento.Msg> historico = repositorio.buscarUltimas(nova, HISTORICO_INICIAL).stream()
                     .map(Evento.Msg::de).toList();
-            avisarSala(cliente, usuario.nome() + " saiu da sala " + antiga + ".");
+            avisarSala(cliente, Mensagens.avisoDeSaida(usuario.nome(), antiga));
             cliente.definirSala(nova);
             if (!historico.isEmpty()) {
                 cliente.enviar(new Evento.Historico(historico));
             }
-            cliente.enviar(new Evento.Ok("Você entrou na sala " + nova + "."));
-            avisarSala(cliente, usuario.nome() + " entrou na sala " + nova + ".");
+            cliente.enviar(new Evento.Ok(Mensagens.entrouNaSala(nova)));
+            avisarSala(cliente, Mensagens.avisoDeEntrada(usuario.nome(), nova));
         }
     }
 
