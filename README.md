@@ -41,9 +41,22 @@ Outros documentos: [relatório](docs/RELATORIO.md), [roteiro do vídeo](docs/ROT
 
 A autoavaliação com evidências, arquivo e linha está em [docs/REVISOES.md](docs/REVISOES.md), seção 4.
 
+## Início rápido (só precisa do Java 21)
+
+Baixe ou clone o repositório e use os atalhos da raiz. Na primeira vez eles compilam o projeto sozinhos pelo Maven Wrapper (`mvnw`), o que baixa o Maven e leva cerca de um minuto, com internet. Nas próximas vezes abrem direto.
+
+| Windows | Linux e macOS | O que abre |
+|---|---|---|
+| `iniciar-tudo.bat` | | Servidor e 3 janelas do chat |
+| `iniciar-servidor.bat` | `./iniciar-servidor.sh` | Só o servidor (porta 5000) |
+| `iniciar-cliente-grafico.bat` | `./iniciar-cliente-grafico.sh` | Uma janela do chat |
+| `iniciar-cliente-terminal.bat` | `./iniciar-cliente-terminal.sh` | Cliente de terminal |
+
+Na tela de login, use servidor `localhost`, porta `5000`, e "Criar conta" na primeira vez. Se alguma janela do chat não abrir no Windows, rode `iniciar-cliente-terminal.bat` para ver a mensagem de erro. Confira a versão do Java com `java -version`.
+
 ## Como compilar e rodar
 
-Requisitos: Java 21 e Maven.
+Requisitos: Java 21 e Maven (ou use o `mvnw` da raiz no lugar de `mvn`).
 
 ```
 mvn test                      # todos os testes
