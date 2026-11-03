@@ -2,7 +2,7 @@
 
 Projeto da disciplina de Programação Orientada a Objetos. É um chat cliente-servidor em Java 21: o servidor atende vários clientes ao mesmo tempo (uma thread por conexão), distribui as mensagens a todos e guarda o histórico em SQLite por JDBC. Há um cliente de terminal e um cliente gráfico (Swing com FlatLaf).
 
-Outros documentos: [relatório](docs/RELATORIO.md), [roteiro do vídeo](docs/ROTEIRO_VIDEO.md), [perguntas sobre concorrência](docs/PERGUNTAS_CONCORRENCIA.md), [revisões](docs/REVISOES.md) e regras do projeto em [AGENTS.md](AGENTS.md).
+Vídeo de demonstração: [docs/video/demonstracao.mp4](docs/video/demonstracao.mp4) (3 clientes conectados, sem áudio). Outros documentos: [relatório](docs/RELATORIO.md), [roteiro do vídeo](docs/ROTEIRO_VIDEO.md), [perguntas sobre concorrência](docs/PERGUNTAS_CONCORRENCIA.md), [revisões](docs/REVISOES.md) e regras do projeto em [AGENTS.md](AGENTS.md).
 
 ## Requisitos
 
