@@ -1,16 +1,16 @@
-Chat Multiusuário com Histórico
+# Chat Multiusuário com Histórico
 
-Relatório de arquitetura e concorrência
+**Relatório de arquitetura e concorrência**
 
 Programação Orientada a Objetos · 2º bimestre · github.com/JoaoLucasVeiga/TrabalhoPOO2bimestre
 
-1\. Visão geral
+## 1. Visão geral
 
 O projeto é um chat cliente-servidor em Java 21 que usa sockets TCP. O servidor aceita vários clientes ao mesmo tempo, retransmite cada mensagem para todos os conectados e grava o histórico em um banco SQLite por JDBC. Quando um cliente conecta, recebe as últimas mensagens já gravadas.
 
 Além do núcleo pedido, o sistema tem lista de usuários online, mensagens privadas, salas, busca no histórico, login com senha protegida por PBKDF2, exportação do histórico e uma interface gráfica em Swing.
 
-2\. Arquitetura
+## 2. Arquitetura
 
 O código está dividido em pacotes, e cada um tem uma responsabilidade:
 
@@ -36,7 +36,7 @@ O caminho de uma mensagem é este:
 
 Algumas decisões de projeto: o ChatService depende da interface do repositório, e a classe JDBC só é escolhida no main. Cada interface tem um adaptador real e um falso (repositório em memória e conexão falsa), o que permite testar sem rede e sem banco. Mensagem é um objeto de valor imutável, Usuario é uma entidade identificada pelo nome e Sala é a raiz do agregado.
 
-3\. Concorrência
+## 3. Concorrência
 
 Cada cliente roda em uma thread própria. Os recursos que várias threads usam ao mesmo tempo, e como cada um foi protegido, estão na tabela abaixo.
 
@@ -54,11 +54,11 @@ Os campos lidos por mais de uma thread são volatile ou AtomicBoolean. Quando um
 
 **Riscos que ficaram.** A gravação no banco acontece dentro do lock de ordem, então um INSERT lento atrasa todos os envios. Foi mantido assim porque a mesma ordem para todos é o requisito. Também não há keep-alive TCP.
 
-4\. Testes
+## 4. Testes
 
 São 908 testes com JUnit 5, todos passando. Os testes unitários não usam rede nem banco real. Os de integração usam SQLite em arquivo temporário e sockets em loopback. Os testes de concorrência usam 8 threads, @RepeatedTest(10), CountDownLatch e join, sem Thread.sleep. O repositório em memória e o JDBC passam pelo mesmo contrato de testes.
 
-5\. Onde a IA foi usada
+## 5. Onde a IA foi usada
 
 - O projeto foi desenvolvido com apoio do Claude (IA), que escreveu o código e os testes em etapas, seguindo TDD: primeiro o teste falhando, depois o mínimo de código. Cada etapa terminou com os testes verdes e um commit.
 
@@ -70,7 +70,7 @@ São 908 testes com JUnit 5, todos passando. Os testes unitários não usam rede
 
 - Regra seguida: nenhum teste foi alterado só para passar. As mudanças em testes antigos foram autorizadas antes.
 
-6\. Limitações
+## 6. Limitações
 
 - A senha trafega sem criptografia, porque não há TLS. O hash PBKDF2 com salt protege só o que fica gravado no banco.
 
@@ -84,6 +84,6 @@ São 908 testes com JUnit 5, todos passando. Os testes unitários não usam rede
 
 - Os testes automáticos de janela rodaram só em Linux. No Windows, o iniciar-tudo.bat abriu o servidor e as janelas do chat.
 
-7\. Como executar
+## 7. Como executar
 
 Baixe o repositório, instale o Java 21 e, na pasta do projeto, dê dois cliques em iniciar-tudo.bat (Windows). Na primeira vez ele compila o projeto sozinho e depois abre o servidor e três janelas do chat. Os detalhes e os comandos do chat estão no README.
