@@ -8,6 +8,19 @@ if errorlevel 1 (
     exit /b 1
 )
 if exist "target\chat-multiusuario-1.0.0.jar" if exist "target\lib" exit /b 0
+
+rem O Maven precisa de um JAVA_HOME valido. Se estiver ausente ou apontar para uma pasta
+rem que nao existe mais, usa o mesmo Java que o comando "java" ja enxerga.
+if not exist "%JAVA_HOME%\bin\java.exe" (
+    set "JAVA_HOME="
+    for /f "tokens=1,* delims==" %%a in ('java -XshowSettings:properties -version 2^>^&1 ^| findstr /C:"java.home"') do for /f "tokens=*" %%c in ("%%b") do set "JAVA_HOME=%%c"
+)
+if not exist "%JAVA_HOME%\bin\javac.exe" (
+    echo Nao foi encontrado o compilador do Java. Instale o JDK 21 ou mais novo, nao so o JRE.
+    pause
+    exit /b 1
+)
+
 echo Compilando o projeto pela primeira vez. Isso pode levar alguns minutos...
 call mvnw.cmd -B -q package -DskipTests
 if errorlevel 1 (

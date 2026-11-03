@@ -113,6 +113,7 @@ São 908 testes. Os 17 testes de janela são ignorados quando não há tela.
 |---|---|
 | `java` não é reconhecido, ou "comando não encontrado" | Instale o JDK 21 (seção 2) e abra um terminal novo |
 | `UnsupportedClassVersionError` | O Java instalado é mais antigo que o 21. Instale o 21 |
+| `The JAVA_HOME environment variable is not defined correctly` | A variável `JAVA_HOME` do Windows aponta para uma pasta que não existe. Os atalhos atuais já corrigem isso sozinhos. Se ainda aparecer, defina na janela: `set JAVA_HOME=C:\caminho\do\jdk-21` e rode o atalho de novo |
 | Falha ao compilar na primeira vez | Confira a internet e a versão do Java (`java -version`) e tente de novo |
 | O cliente diz que não conseguiu conectar | O servidor não está aberto, ou a porta ou o endereço estão diferentes |
 | Porta 5000 em uso | Inicie o servidor em outra porta (`ServidorMain 5001`) e use a mesma no login |
