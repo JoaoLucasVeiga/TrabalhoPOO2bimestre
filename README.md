@@ -158,7 +158,7 @@ São 908 testes. Os 17 testes de janela são ignorados quando não há tela.
 
 A autoavaliação com evidências, arquivo e linha está em [docs/REVISOES.md](docs/REVISOES.md), seção 4.
 
-Outros documentos: [relatório](docs/RELATORIO.md), [roteiro do vídeo](docs/ROTEIRO_VIDEO.md), [perguntas sobre concorrência](docs/PERGUNTAS_CONCORRENCIA.md), [revisões](docs/REVISOES.md) e regras do projeto em [AGENTS.md](AGENTS.md).
+Outros documentos: [relatório](docs/RELATORIO.md) (também em [Word](docs/Relatorio_Chat_Multiusuario.docx)), [roteiro do vídeo](docs/ROTEIRO_VIDEO.md), [perguntas sobre concorrência](docs/PERGUNTAS_CONCORRENCIA.md), [revisões](docs/REVISOES.md) e regras do projeto em [AGENTS.md](AGENTS.md).
 
 ## Arquitetura em camadas
 
