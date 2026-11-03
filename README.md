@@ -1,10 +1,127 @@
 # Chat Multiusuário com Histórico
 
-Projeto da disciplina de Programação Orientada a Objetos. É um chat cliente-servidor em Java 21: o servidor atende vários clientes ao mesmo tempo (uma thread por conexão), distribui as mensagens a todos e guarda o histórico em SQLite por JDBC. Há um cliente de terminal e um cliente gráfico (Swing com FlatLaf).
+Projeto da disciplina de Programação Orientada a Objetos. É um chat cliente-servidor em Java 21: o servidor atende vários clientes ao mesmo tempo (uma thread por conexão), distribui as mensagens a todos e guarda o histórico em SQLite por JDBC. Há um cliente gráfico (Swing com FlatLaf) e um cliente de terminal.
 
-Vídeo de demonstração: [docs/video/demonstracao.mp4](docs/video/demonstracao.mp4) (3 clientes conectados, sem áudio). Outros documentos: [relatório](docs/RELATORIO.md), [roteiro do vídeo](docs/ROTEIRO_VIDEO.md), [perguntas sobre concorrência](docs/PERGUNTAS_CONCORRENCIA.md), [revisões](docs/REVISOES.md) e regras do projeto em [AGENTS.md](AGENTS.md).
+Vídeo de demonstração: [docs/video/demonstracao.mp4](docs/video/demonstracao.mp4) (3 clientes conectados, sem áudio).
 
-## Requisitos
+## Sumário
+
+1. [Baixar o projeto](#1-baixar-o-projeto)
+2. [Instalar o Java 21](#2-instalar-o-java-21)
+3. [Executar o chat](#3-executar-o-chat)
+4. [Usar o chat e comandos](#4-usar-o-chat-e-comandos)
+5. [Rodar os testes](#5-rodar-os-testes)
+6. [Problemas comuns](#6-problemas-comuns)
+7. [Requisitos e rubrica](#7-requisitos-e-rubrica)
+8. [Arquitetura](#arquitetura-em-camadas) e demais seções
+
+## 1. Baixar o projeto
+
+Escolha uma das opções.
+
+**Com Git:**
+
+```
+git clone https://github.com/JoaoLucasVeiga/TrabalhoPOO2bimestre.git
+cd TrabalhoPOO2bimestre
+```
+
+**Sem Git:** na página do repositório, clique em **Code > Download ZIP** e descompacte o arquivo. Abra a pasta descompactada.
+
+## 2. Instalar o Java 21
+
+Só o **Java 21 (JDK) ou mais novo** é necessário. Não precisa instalar Maven, banco de dados nem Node.
+
+Confira se já está instalado, abrindo um terminal (no Windows, o Prompt de Comando) e digitando:
+
+```
+java -version
+```
+
+Se aparecer `21` ou um número maior, siga adiante. Se aparecer um número menor ou "comando não encontrado", instale o JDK 21 em https://adoptium.net (escolha "Temurin 21") e abra um terminal novo.
+
+## 3. Executar o chat
+
+Na pasta do projeto, use os atalhos. Na primeira vez eles compilam o projeto sozinhos pelo Maven Wrapper (`mvnw`): baixa o Maven e leva cerca de um minuto, com internet. Nas vezes seguintes abrem direto.
+
+**Mais rápido, no Windows:** dê dois cliques em `iniciar-tudo.bat`. Ele abre o servidor e 3 janelas do chat.
+
+| Windows | Linux e macOS | O que abre |
+|---|---|---|
+| `iniciar-tudo.bat` | | Servidor e 3 janelas do chat |
+| `iniciar-servidor.bat` | `./iniciar-servidor.sh` | Só o servidor (porta 5000) |
+| `iniciar-cliente-grafico.bat` | `./iniciar-cliente-grafico.sh` | Uma janela do chat |
+| `iniciar-cliente-terminal.bat` | `./iniciar-cliente-terminal.sh` | Cliente de terminal |
+
+Para usar de outro jeito, abra primeiro o servidor e depois quantos clientes quiser.
+
+**Na tela de login de cada janela:**
+
+1. Servidor `localhost` e porta `5000` (já vêm preenchidos).
+2. Escreva um usuário (3 a 20 letras, números ou `_`) e uma senha (6 a 128 caracteres).
+3. Na primeira vez, clique em **Criar conta**. Nas próximas, clique em **Entrar**.
+4. Use um usuário diferente em cada janela e converse entre elas.
+
+O servidor cria na pasta onde foi iniciado o banco `chat.db`, o log `logs/servidor.log` e a pasta `exportacoes/`. Esses arquivos não são versionados. Para zerar o histórico, pare o servidor e apague o `chat.db`.
+
+**Sem os atalhos (linha de comando):**
+
+```
+mvnw package -DskipTests       # no Linux/macOS: sh ./mvnw package -DskipTests
+java -cp target/chat-multiusuario-1.0.0.jar br.unicesumar.chat.ServidorMain [porta] [arquivo.db] [--sem-autenticacao]
+java -cp target/chat-multiusuario-1.0.0.jar br.unicesumar.chat.ClienteGuiMain
+java -cp target/chat-multiusuario-1.0.0.jar br.unicesumar.chat.ClienteTerminalMain [servidor] [porta]
+```
+
+O `.jar` precisa ficar ao lado da pasta `target/lib`, onde estão o SQLite e o FlatLaf. Quem já tem Maven pode usar `mvn` no lugar de `mvnw`.
+
+**Em outro computador da mesma rede:** no PC do servidor, descubra o IP (`ipconfig` no Windows). Nos outros PCs, abra o cliente e preencha esse IP em "Servidor", com a mesma porta. A senha trafega sem criptografia (sem TLS), por isso não exponha o servidor na internet.
+
+## 4. Usar o chat e comandos
+
+No cliente gráfico, digite na caixa de baixo e pressione Enter. Os comandos abaixo também valem na interface gráfica e no terminal.
+
+| Comando | O que faz |
+|---|---|
+| `/help` | Lista os comandos |
+| `/users` | Usuários online na sua sala |
+| `/history [quantidade]` | Últimas mensagens da sala |
+| `/msg usuario texto` | Mensagem privada |
+| `/buscar usuario <nome>` | Mensagens de um usuário |
+| `/buscar texto <trecho>` | Mensagens que contêm o trecho |
+| `/buscar periodo <AAAA-MM-DD> <AAAA-MM-DD>` | Mensagens entre duas datas |
+| `/join sala`, `/leave`, `/rooms` | Entrar em uma sala, voltar para a geral, listar salas |
+| `/exportar` | Grava o histórico da sala em um `.txt` no servidor |
+| `/register nome senha`, `/login nome senha` | Criar conta ou entrar (no terminal) |
+| `/quit` | Sai do chat |
+
+Cada mensagem tem no máximo 500 caracteres e aparece como `[HH:mm] nome: texto`. Na interface gráfica, Ctrl+F abre a busca e Ctrl+Q sai.
+
+## 5. Rodar os testes
+
+```
+mvnw test                     # todos os testes (no Linux/macOS: sh ./mvnw test)
+xvfb-run -a mvn test          # inclui os testes de janela (Linux sem tela)
+mvnw javadoc:javadoc          # Javadoc em target/site/apidocs
+```
+
+São 908 testes. Os 17 testes de janela são ignorados quando não há tela.
+
+## 6. Problemas comuns
+
+| O que aparece | O que fazer |
+|---|---|
+| `java` não é reconhecido, ou "comando não encontrado" | Instale o JDK 21 (seção 2) e abra um terminal novo |
+| `UnsupportedClassVersionError` | O Java instalado é mais antigo que o 21. Instale o 21 |
+| Falha ao compilar na primeira vez | Confira a internet e a versão do Java (`java -version`) e tente de novo |
+| O cliente diz que não conseguiu conectar | O servidor não está aberto, ou a porta ou o endereço estão diferentes |
+| Porta 5000 em uso | Inicie o servidor em outra porta (`ServidorMain 5001`) e use a mesma no login |
+| O Windows pergunta sobre o firewall | Permita o acesso. Em `localhost` normalmente nem aparece |
+| A janela do chat não abre no Windows | Rode `iniciar-cliente-terminal.bat` para ver a mensagem de erro |
+| "O nome ... já está cadastrado" | A conta já existe. Clique em **Entrar** em vez de Criar conta |
+| "O nome ... já está em uso" | Esse usuário já está online em outra janela. Use outro nome |
+
+## 7. Requisitos e rubrica
 
 ### Núcleo (obrigatório)
 
@@ -41,66 +158,7 @@ Vídeo de demonstração: [docs/video/demonstracao.mp4](docs/video/demonstracao.
 
 A autoavaliação com evidências, arquivo e linha está em [docs/REVISOES.md](docs/REVISOES.md), seção 4.
 
-## Início rápido (só precisa do Java 21)
-
-Baixe ou clone o repositório e use os atalhos da raiz. Na primeira vez eles compilam o projeto sozinhos pelo Maven Wrapper (`mvnw`), o que baixa o Maven e leva cerca de um minuto, com internet. Nas próximas vezes abrem direto.
-
-| Windows | Linux e macOS | O que abre |
-|---|---|---|
-| `iniciar-tudo.bat` | | Servidor e 3 janelas do chat |
-| `iniciar-servidor.bat` | `./iniciar-servidor.sh` | Só o servidor (porta 5000) |
-| `iniciar-cliente-grafico.bat` | `./iniciar-cliente-grafico.sh` | Uma janela do chat |
-| `iniciar-cliente-terminal.bat` | `./iniciar-cliente-terminal.sh` | Cliente de terminal |
-
-Na tela de login, use servidor `localhost`, porta `5000`, e "Criar conta" na primeira vez. Se alguma janela do chat não abrir no Windows, rode `iniciar-cliente-terminal.bat` para ver a mensagem de erro. Confira a versão do Java com `java -version`.
-
-## Como compilar e rodar
-
-Requisitos: Java 21 e Maven (ou use o `mvnw` da raiz no lugar de `mvn`).
-
-```
-mvn test                      # todos os testes
-xvfb-run -a mvn test          # inclui os testes de janela (Linux sem tela)
-mvn package -DskipTests       # gera target/chat-multiusuario-1.0.0.jar e target/lib/
-mvn javadoc:javadoc           # Javadoc em target/site/apidocs
-```
-
-Servidor (porta 5000 e arquivo `chat.db` por padrão):
-
-```
-java -cp target/chat-multiusuario-1.0.0.jar br.unicesumar.chat.ServidorMain [porta] [arquivo.db] [--sem-autenticacao]
-```
-
-Cliente de terminal:
-
-```
-java -cp target/chat-multiusuario-1.0.0.jar br.unicesumar.chat.ClienteTerminalMain [servidor] [porta]
-```
-
-Cliente gráfico:
-
-```
-java -cp target/chat-multiusuario-1.0.0.jar br.unicesumar.chat.ClienteGuiMain
-```
-
-O `.jar` precisa ficar ao lado da pasta `target/lib`, onde estão o SQLite e o FlatLaf. O servidor cria `chat.db`, `logs/servidor.log` e `exportacoes/` na pasta onde for iniciado. Esses arquivos não são versionados.
-
-Primeiro acesso: `/register nome senha` cria a conta e já entra. Depois, `/login nome senha`. O nome tem de 3 a 20 letras, números ou `_`, e a senha de 6 a 128 caracteres.
-
-### Comandos
-
-| Comando | O que faz |
-|---|---|
-| `/help` | Lista os comandos |
-| `/users` | Usuários online na sua sala |
-| `/history [quantidade]` | Últimas mensagens da sala |
-| `/msg usuario texto` | Mensagem privada |
-| `/buscar usuario <nome>` | Mensagens de um usuário |
-| `/buscar texto <trecho>` | Mensagens que contêm o trecho |
-| `/buscar periodo <AAAA-MM-DD> <AAAA-MM-DD>` | Mensagens entre duas datas |
-| `/join sala`, `/leave`, `/rooms` | Entrar em uma sala, voltar para a geral, listar salas |
-| `/exportar` | Grava o histórico da sala em um `.txt` no servidor |
-| `/quit` | Sai do chat |
+Outros documentos: [relatório](docs/RELATORIO.md), [roteiro do vídeo](docs/ROTEIRO_VIDEO.md), [perguntas sobre concorrência](docs/PERGUNTAS_CONCORRENCIA.md), [revisões](docs/REVISOES.md) e regras do projeto em [AGENTS.md](AGENTS.md).
 
 ## Arquitetura em camadas
 
@@ -253,7 +311,7 @@ Chat desconectado:
 
 ## Estado dos testes e limitações
 
-- 905 testes. Sem tela, os 17 testes de janela são ignorados; com `xvfb-run -a mvn test` todos rodam.
+- 908 testes. Sem tela, os 17 testes de janela são ignorados; com `xvfb-run -a mvn test` todos rodam.
 - Todos os testes passam. O teste da sala (`SalaServiceTest.falhaAoBuscarOHistoricoNaoMudaASalaNemAvisaNinguem`) usava um repositório falso que só falhava ao gravar, e o cenário pede falha ao ler. O defeito era do teste e foi corrigido com um repositório falso que falha na leitura.
 - A senha trafega em texto puro, porque não há TLS. O hash PBKDF2 protege só o que fica gravado no banco.
 - Quando se está lendo mensagens antigas, a janela não avisa que chegaram mensagens novas.
