@@ -86,7 +86,10 @@ public class ClienteChat {
                     tela.println("Conexão encerrada. Pressione Enter para sair.");
                     return;
                 }
-                tela.println(FormatadorTerminal.formatar(evento));
+                String linha = FormatadorTerminal.formatar(evento);
+                if (!linha.isEmpty()) {
+                    tela.println(linha);
+                }
             } catch (ProtocoloException e) {
                 tela.println("[erro] Mensagem do servidor ilegível: " + e.getMessage());
             } catch (IOException e) {

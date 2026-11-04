@@ -50,6 +50,7 @@ public final class Protocolo {
             }
             case Ok o -> linha("OK", o.texto());
             case Erro e -> linha("ERRO", e.texto());
+            case Papel p -> linha("PAPEL", p.administrador() ? "admin" : "usuario");
         };
     }
 
@@ -109,6 +110,15 @@ public final class Protocolo {
             case "ERRO" -> {
                 exigir(tipo, campos, 1);
                 yield new Erro(campos.get(0));
+            }
+            case "PAPEL" -> {
+                exigir(tipo, campos, 1);
+                yield switch (campos.get(0)) {
+                    case "admin" -> new Papel(true);
+                    case "usuario" -> new Papel(false);
+                    default -> throw new ProtocoloException("Papel desconhecido: '" + campos.get(0)
+                            + "'. Verifique se o cliente e o servidor estão na mesma versão.");
+                };
             }
             default -> throw new ProtocoloException("Tipo de evento desconhecido: '" + tipo
                     + "'. Verifique se o cliente e o servidor estão na mesma versão.");

@@ -239,6 +239,7 @@ public class CommandService {
         String[] dados = nomeESenha(argumentos, "/register nome senha");
         Usuario usuario = auth.registrar(dados[0], dados[1]);
         chat.entrar(origem, usuario);
+        informarPapel(origem, usuario);
     }
 
     private void entrarComConta(ClienteHandler origem, String argumentos) {
@@ -250,6 +251,14 @@ public class CommandService {
                     + "' já está conectado em outra sessão. Feche a outra sessão e tente de novo.");
         }
         chat.entrar(origem, usuario);
+        informarPapel(origem, usuario);
+    }
+
+    /** Em servidor com restrição, diz ao cliente se ele é administrador (a interface esconde o resto). */
+    private void informarPapel(ClienteHandler origem, Usuario usuario) {
+        if (administradores.restrito()) {
+            origem.enviar(new Evento.Papel(administradores.ehAdmin(usuario.nome())));
+        }
     }
 
     private static void exigirSemLogin(ClienteHandler origem) {

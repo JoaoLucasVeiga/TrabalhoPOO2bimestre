@@ -399,6 +399,12 @@ public class PainelChat extends JPanel implements ChatView {
         emEdt(() -> usuario = nome);
     }
 
+    /** Esconde o botão Exportar de quem o servidor diz que não é administrador. */
+    @Override
+    public void definirAdministrador(boolean administrador) {
+        emEdt(() -> botaoExportar.setVisible(administrador));
+    }
+
     @Override
     public void mostrarConexao(EstadoConexao estado) {
         emEdt(() -> definirConexaoNaEdt(estado));

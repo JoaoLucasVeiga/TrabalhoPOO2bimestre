@@ -437,4 +437,24 @@ class PainelChatTest {
         esperar(() -> conexao.enviadas().contains("resposta"));
         assertEquals(List.of(), verificador.violacoes());
     }
+
+    // ---------- papel de administrador (botão Exportar) ----------
+
+    @Test
+    void exportarComecaVisivelEFicaVisivelQuandoOServidorDizQueEAdmin() throws Exception {
+        edt();
+        assertTrue(painel.botaoExportar().isVisible());
+        entrar(new Evento.Papel(true));
+        esperar(() -> painel.botaoExportar().isVisible());
+        assertTrue(painel.botaoExportar().isVisible());
+    }
+
+    @Test
+    void usuarioComumNaoVeOBotaoExportar() throws Exception {
+        entrar(new Evento.Papel(false));
+        esperar(() -> !painel.botaoExportar().isVisible());
+        assertFalse(painel.botaoExportar().isVisible());
+        assertTrue(painel.botaoHistorico().isVisible());
+        assertTrue(painel.botaoBuscar().isVisible());
+    }
 }

@@ -42,6 +42,13 @@ public interface ChatView {
     /** Mostra um aviso sem gravidade. */
     void mostrarAviso(String texto);
 
+    /**
+     * O servidor informou se o usuário é administrador. Interfaces que não distinguem papéis
+     * podem ignorar.
+     */
+    default void definirAdministrador(boolean administrador) {
+    }
+
     /** A sessão terminou sem o usuário pedir (servidor caiu ou encerrou). */
     void sessaoEncerrada(String motivo);
 }

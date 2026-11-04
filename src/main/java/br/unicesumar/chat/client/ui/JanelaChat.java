@@ -127,6 +127,11 @@ public class JanelaChat extends JFrame implements ChatView {
     }
 
     @Override
+    public void definirAdministrador(boolean administrador) {
+        painel.definirAdministrador(administrador);
+    }
+
+    @Override
     public void mostrarConexao(EstadoConexao estado) {
         painel.mostrarConexao(estado);
     }

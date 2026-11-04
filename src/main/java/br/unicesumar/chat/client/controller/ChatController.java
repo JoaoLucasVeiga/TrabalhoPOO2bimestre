@@ -287,6 +287,7 @@ public class ChatController {
             case Evento.Historico h -> tratarHistorico(h, eu);
             case Evento.Ok o -> tratarOk(o.texto());
             case Evento.Erro e -> tratarErro(e.texto());
+            case Evento.Papel p -> view.definirAdministrador(p.administrador());
         }
     }
 
