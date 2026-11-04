@@ -27,6 +27,8 @@ public class JdbcMensagemRepository implements MensagemRepository {
     private static final String INSERIR =
             "INSERT INTO mensagem (remetente, destinatario, sala, conteudo, horario) "
                     + "VALUES (?, ?, ?, ?, ?)";
+    private static final String APAGAR_SALA =
+            "DELETE FROM mensagem WHERE sala = ? AND destinatario IS NULL";
     private static final String ULTIMAS_PUBLICAS =
             "SELECT id, remetente, destinatario, sala, conteudo, horario FROM ("
                     + "SELECT * FROM mensagem WHERE sala = ? AND destinatario IS NULL "
@@ -83,6 +85,23 @@ public class JdbcMensagemRepository implements MensagemRepository {
             LOG.log(Level.SEVERE, "Falha ao salvar mensagem: " + e.getMessage(), e);
             throw new RepositorioException(
                     "Não foi possível salvar a mensagem. Tente novamente em instantes.", e);
+        }
+    }
+
+    /** {@inheritDoc} Só apaga as públicas ({@code destinatario IS NULL}). */
+    @Override
+    public int apagarSala(String sala) {
+        if (sala == null || sala.isBlank()) {
+            throw new IllegalArgumentException("Informe a sala a limpar.");
+        }
+        try (Connection c = fabrica.abrir();
+                PreparedStatement ps = c.prepareStatement(APAGAR_SALA)) {
+            ps.setString(1, sala);
+            return ps.executeUpdate();
+        } catch (SQLException e) {
+            LOG.log(Level.SEVERE, "Falha ao apagar o histórico da sala: " + e.getMessage(), e);
+            throw new RepositorioException(
+                    "Não foi possível apagar o histórico da sala. Tente novamente em instantes.", e);
         }
     }
 

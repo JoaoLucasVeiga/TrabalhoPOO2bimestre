@@ -56,6 +56,24 @@ public class ChatService {
     }
 
     /**
+     * Apaga o histórico público da sala e avisa quem está nela. Acontece sob o mesmo lock das
+     * mensagens, então ninguém recebe mensagem "no meio" da limpeza.
+     *
+     * @param administrador nome de quem pediu (aparece no aviso)
+     * @return quantas mensagens foram apagadas
+     * @throws br.unicesumar.chat.persistence.RepositorioException se o banco falhar (ninguém é avisado)
+     */
+    public int limparSala(String sala, String administrador) {
+        Objects.requireNonNull(administrador, "administrador");
+        synchronized (ordem) {
+            int apagadas = repositorio.apagarSala(sala);
+            registry.transmitir(new Evento.Sistema(administrador + " limpou o histórico da sala " + sala + "."),
+                    c -> c.usuario().isPresent() && c.sala().equals(sala));
+            return apagadas;
+        }
+    }
+
+    /**
      * Identifica o cliente e lhe envia o histórico recente da sala (se houver) e o
      * OK de boas-vindas. Buscar o histórico, identificar e enviar acontecem sob o
      * mesmo lock de {@link #enviarMensagem}: nenhuma mensagem fica entre o
