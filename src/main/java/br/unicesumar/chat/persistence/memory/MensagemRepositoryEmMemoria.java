@@ -7,6 +7,8 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.function.Predicate;
 import java.util.Objects;
@@ -40,7 +42,6 @@ public class MensagemRepositoryEmMemoria implements MensagemRepository {
     }
 
     /** {@inheritDoc} */
-    /** {@inheritDoc} */
     @Override
     public synchronized int apagarSala(String sala) {
         if (sala == null || sala.isBlank()) {
@@ -51,6 +52,7 @@ public class MensagemRepositoryEmMemoria implements MensagemRepository {
         return antes - mensagens.size();
     }
 
+    /** {@inheritDoc} */
     @Override
     public synchronized List<Mensagem> buscarPorUsuario(String sala, String remetente, int limite) {
         ValidacaoBusca.exigirSala(sala);
@@ -87,5 +89,58 @@ public class MensagemRepositoryEmMemoria implements MensagemRepository {
                 .toList();
         int inicio = Math.max(0, achadas.size() - limite);
         return new ArrayList<>(achadas.subList(inicio, achadas.size()));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public synchronized List<Mensagem> buscarConversa(String a, String b, int quantidade) {
+        exigirNome(a, "O primeiro usuário");
+        exigirNome(b, "O segundo usuário");
+        if (quantidade < 0) {
+            throw new IllegalArgumentException("A quantidade não pode ser negativa.");
+        }
+        List<Mensagem> conversa = mensagens.stream()
+                .filter(m -> m.ehPrivada() && entre(m, a, b))
+                .toList();
+        int inicio = Math.max(0, conversa.size() - quantidade);
+        return new ArrayList<>(conversa.subList(inicio, conversa.size()));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public synchronized List<String> listarConversas(String usuario) {
+        exigirNome(usuario, "O usuário");
+        Map<String, String> nomePorChave = new LinkedHashMap<>();
+        for (int i = mensagens.size() - 1; i >= 0; i--) { // da mais recente para a mais antiga
+            Mensagem m = mensagens.get(i);
+            if (!m.ehPrivada()) {
+                continue;
+            }
+            String remetente = m.remetente().nome();
+            String destinatario = m.destinatario().orElseThrow().nome();
+            String outro;
+            if (remetente.equalsIgnoreCase(usuario)) {
+                outro = destinatario;
+            } else if (destinatario.equalsIgnoreCase(usuario)) {
+                outro = remetente;
+            } else {
+                continue;
+            }
+            nomePorChave.putIfAbsent(outro.toLowerCase(Locale.ROOT), outro);
+        }
+        return new ArrayList<>(nomePorChave.values());
+    }
+
+    private static boolean entre(Mensagem m, String a, String b) {
+        String remetente = m.remetente().nome();
+        String destinatario = m.destinatario().orElseThrow().nome();
+        return remetente.equalsIgnoreCase(a) && destinatario.equalsIgnoreCase(b)
+                || remetente.equalsIgnoreCase(b) && destinatario.equalsIgnoreCase(a);
+    }
+
+    private static void exigirNome(String nome, String quem) {
+        if (nome == null || nome.isBlank()) {
+            throw new IllegalArgumentException(quem + " é obrigatório.");
+        }
     }
 }

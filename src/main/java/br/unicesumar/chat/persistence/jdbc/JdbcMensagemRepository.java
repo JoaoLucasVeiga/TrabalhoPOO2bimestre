@@ -34,6 +34,22 @@ public class JdbcMensagemRepository implements MensagemRepository {
                     + "SELECT * FROM mensagem WHERE sala = ? AND destinatario IS NULL "
                     + "ORDER BY id DESC LIMIT ?) ORDER BY id ASC";
 
+    // Conversa privada entre dois usuários, nos dois sentidos, em ordem de gravação.
+    private static final String CONVERSA =
+            "SELECT id, remetente, destinatario, sala, conteudo, horario FROM ("
+                    + "SELECT * FROM mensagem WHERE destinatario IS NOT NULL AND "
+                    + "((remetente = ? COLLATE NOCASE AND destinatario = ? COLLATE NOCASE) OR "
+                    + "(remetente = ? COLLATE NOCASE AND destinatario = ? COLLATE NOCASE)) "
+                    + "ORDER BY id DESC LIMIT ?) ORDER BY id ASC";
+    // Um interlocutor por linha, da conversa mais recente para a mais antiga.
+    private static final String CONVERSAS =
+            "SELECT contraparte FROM ("
+                    + "SELECT contraparte, MAX(id) AS ultimo FROM ("
+                    + "SELECT id, CASE WHEN remetente = ? COLLATE NOCASE THEN destinatario ELSE remetente END "
+                    + "AS contraparte FROM mensagem WHERE destinatario IS NOT NULL "
+                    + "AND (remetente = ? COLLATE NOCASE OR destinatario = ? COLLATE NOCASE)"
+                    + ") GROUP BY lower(contraparte)) ORDER BY ultimo DESC";
+
     // Cada busca é um SQL fixo (nada é concatenado); os valores entram só por parâmetros.
     private static final String POR_USUARIO =
             "SELECT id, remetente, destinatario, sala, conteudo, horario FROM ("
@@ -195,6 +211,45 @@ public class JdbcMensagemRepository implements MensagemRepository {
             LOG.log(Level.SEVERE, "Falha na busca de mensagens: " + e.getMessage(), e);
             throw new RepositorioException(
                     "Não foi possível fazer a busca. Tente novamente em instantes.", e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public List<Mensagem> buscarConversa(String a, String b, int quantidade) {
+        ValidacaoBusca.exigirTexto(a, "O primeiro usuário");
+        ValidacaoBusca.exigirTexto(b, "O segundo usuário");
+        if (quantidade < 0) {
+            throw new IllegalArgumentException("A quantidade não pode ser negativa.");
+        }
+        return consultar(CONVERSA, ps -> {
+            ps.setString(1, a);
+            ps.setString(2, b);
+            ps.setString(3, b);
+            ps.setString(4, a);
+            ps.setInt(5, quantidade);
+        });
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public List<String> listarConversas(String usuario) {
+        ValidacaoBusca.exigirTexto(usuario, "O usuário");
+        try (Connection c = fabrica.abrir(); PreparedStatement ps = c.prepareStatement(CONVERSAS)) {
+            ps.setString(1, usuario);
+            ps.setString(2, usuario);
+            ps.setString(3, usuario);
+            try (ResultSet rs = ps.executeQuery()) {
+                List<String> nomes = new ArrayList<>();
+                while (rs.next()) {
+                    nomes.add(rs.getString(1));
+                }
+                return nomes;
+            }
+        } catch (SQLException e) {
+            LOG.log(Level.SEVERE, "Falha ao listar conversas: " + e.getMessage(), e);
+            throw new RepositorioException(
+                    "Não foi possível listar as conversas. Tente novamente em instantes.", e);
         }
     }
 }
