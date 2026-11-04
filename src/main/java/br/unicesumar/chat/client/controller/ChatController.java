@@ -18,6 +18,8 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
@@ -39,6 +41,7 @@ public class ChatController {
     private static final Logger LOG = Logger.getLogger(ChatController.class.getName());
     private static final String SALA_PADRAO = "geral";
     private static final int HISTORICO_ANTERIOR = 100;
+    private static final int HISTORICO_CONVERSA = 50;
     private static final String DESCONECTADO =
             "Você está desconectado do servidor. Entre novamente para continuar.";
 
@@ -54,10 +57,14 @@ public class ChatController {
     private final Deque<Pedido> pendentes = new ArrayDeque<>();
     private final List<MensagemTela> publicas = new ArrayList<>();
     private List<MensagemTela> historicoDaTroca = new ArrayList<>();
+    private final List<String> conversas = new ArrayList<>();
+    private final Map<String, Integer> naoLidas = new LinkedHashMap<>();
 
     private volatile ConexaoChat conexao;
     private volatile String usuario;
     private volatile String salaAtual = SALA_PADRAO;
+    private volatile String conversaAtual;
+    private volatile boolean conversasHabilitadas;
     private volatile EstadoConexao estado = EstadoConexao.DESCONECTADO;
     private volatile boolean encerrando;
     private volatile Thread leitor;
@@ -210,7 +217,10 @@ public class ChatController {
             pendentes.clear();
             publicas.clear();
             publicas.addAll(comMarcacao);
+            conversas.clear();
+            naoLidas.clear();
         }
+        conversaAtual = null;
         view.definirUsuario(entrada.nome());
         view.mostrarConexao(EstadoConexao.CONECTADO);
         view.substituirHistorico(comMarcacao, entrada.sala());
@@ -278,20 +288,80 @@ public class ChatController {
                 synchronized (lock) {
                     publicas.add(tela);
                 }
-                view.adicionar(tela);
+                if (conversaAtual == null) {
+                    view.adicionar(tela);
+                }
             }
-            case Evento.Privada p -> view.adicionar(MensagemTela.privada(p, eu));
+            case Evento.Privada p -> tratarPrivada(p, eu);
             case Evento.Sistema s -> tratarAviso(s.aviso());
             case Evento.Usuarios u -> view.atualizarUsuarios(u.sala(), u.nomes());
             case Evento.Salas s -> view.atualizarSalas(s.nomes(), salaAtual);
             case Evento.Historico h -> tratarHistorico(h, eu);
             case Evento.Ok o -> tratarOk(o.texto());
             case Evento.Erro e -> tratarErro(e.texto());
-            case Evento.Conversas c -> view.atualizarConversas(c.nomes());
-            case Evento.Conversa c -> view.mostrarConversa(c.com(),
-                    c.mensagens().stream().map(p -> MensagemTela.privada(p, eu)).toList());
+            case Evento.Conversas c -> tratarConversas(c.nomes());
+            case Evento.Conversa c -> tratarConversa(c, eu);
             case Evento.Papel p -> view.definirAdministrador(p.administrador());
         }
+    }
+
+    private void tratarPrivada(Evento.Privada p, String eu) {
+        if (!conversasHabilitadas) {
+            view.adicionar(MensagemTela.privada(p, eu));
+            return;
+        }
+        boolean minha = p.de().equalsIgnoreCase(eu);
+        String outro = minha ? p.para() : p.de();
+        String atual = conversaAtual;
+        boolean naConversaAberta = atual != null && atual.equalsIgnoreCase(outro);
+        List<String> lista;
+        Map<String, Integer> naoLidasAgora;
+        synchronized (lock) {
+            promoverConversa(outro);
+            if (!naConversaAberta && !minha) {
+                naoLidas.merge(nomeNaLista(outro), 1, Integer::sum);
+            }
+            lista = new ArrayList<>(conversas);
+            naoLidasAgora = new LinkedHashMap<>(naoLidas);
+        }
+        if (naConversaAberta) {
+            view.adicionar(MensagemTela.privada(p, eu));
+        }
+        view.atualizarConversas(lista);
+        view.atualizarNaoLidas(naoLidasAgora);
+    }
+
+    private void tratarConversas(List<String> nomes) {
+        List<String> lista;
+        synchronized (lock) {
+            conversas.clear();
+            conversas.addAll(nomes);
+            String atual = conversaAtual;
+            if (atual != null && conversas.stream().noneMatch(n -> n.equalsIgnoreCase(atual))) {
+                conversas.add(0, atual);
+            }
+            lista = new ArrayList<>(conversas);
+        }
+        view.atualizarConversas(lista);
+    }
+
+    private void tratarConversa(Evento.Conversa c, String eu) {
+        String atual = conversaAtual;
+        if (atual != null && atual.equalsIgnoreCase(c.com())) {
+            view.mostrarConversa(atual, c.mensagens().stream().map(p -> MensagemTela.privada(p, eu)).toList());
+        }
+    }
+
+    /** Põe o interlocutor na frente da lista de conversas (cria se não existir). Chamar com o lock. */
+    private void promoverConversa(String nome) {
+        String existente = nomeNaLista(nome);
+        conversas.remove(existente);
+        conversas.add(0, existente);
+    }
+
+    /** O nome como já está na lista (ignorando maiúsculas), ou o próprio nome se ainda não está. */
+    private String nomeNaLista(String nome) {
+        return conversas.stream().filter(n -> n.equalsIgnoreCase(nome)).findFirst().orElse(nome);
     }
 
     private void tratarAviso(String aviso) {
@@ -300,7 +370,9 @@ public class ChatController {
         } else if (aviso.equals(Mensagens.SEM_HISTORICO) && consumirSe(Pedido.ANTERIORES)) {
             view.mostrarAviso("Não há mensagens mais antigas.");
         } else {
-            view.adicionar(MensagemTela.sistema(aviso, LocalDateTime.now(relogio)));
+            if (conversaAtual == null) {
+                view.adicionar(MensagemTela.sistema(aviso, LocalDateTime.now(relogio)));
+            }
             if (Mensagens.ehAvisoDePresenca(aviso)) {
                 enviarSilencioso("/users");
             }
@@ -365,6 +437,7 @@ public class ChatController {
             publicas.addAll(historico);
         }
         salaAtual = sala.get();
+        conversaAtual = null;
         view.substituirHistorico(historico, salaAtual);
         atualizarListas();
     }
@@ -410,8 +483,11 @@ public class ChatController {
                     + Mensagem.LIMITE_CONTEUDO + ". Encurte o texto.");
             return;
         }
+        String conversa = conversaAtual;
         if (limpo.startsWith("/")) {
             enviarComando(limpo);
+        } else if (conversa != null) {
+            transmitir("/msg " + conversa + " " + limpo, null);
         } else {
             transmitir(limpo, null);
         }
@@ -433,6 +509,10 @@ public class ChatController {
 
     /** Pede as últimas 100 mensagens; só as mais antigas que as da tela serão inseridas. */
     public void carregarHistoricoAnterior() {
+        if (conversaAtual != null) {
+            view.mostrarAviso("Volte para a sala para ver as mensagens anteriores dela.");
+            return;
+        }
         transmitir("/history " + HISTORICO_ANTERIOR, Pedido.ANTERIORES);
     }
 
@@ -477,6 +557,74 @@ public class ChatController {
         transmitir(comando, Pedido.BUSCA);
     }
 
+    /**
+     * Liga o modo de conversas privadas: elas passam a ter lugar próprio (lista, histórico e não lidas)
+     * em vez de aparecer no meio da sala. Quem monta uma tela que sabe mostrar conversas chama isto;
+     * o cliente de terminal não chama e continua vendo as privadas no fluxo normal.
+     */
+    public void habilitarConversas() {
+        conversasHabilitadas = true;
+    }
+
+    /** Interlocutor da conversa privada aberta, ou {@code null} quando se está vendo a sala. */
+    public String conversaAtual() {
+        return conversaAtual;
+    }
+
+    /**
+     * Abre a conversa privada com o usuário: pede o histórico ao servidor, mostra a conversa no lugar
+     * da sala e zera as mensagens não lidas dele. Não faz nada em telas que não têm conversas.
+     */
+    public void abrirConversa(String com) {
+        if (!conversasHabilitadas) {
+            return;
+        }
+        if (com == null || com.isBlank()) {
+            view.mostrarErro("Informe com quem conversar. Exemplo: ana");
+            return;
+        }
+        String nome = com.strip();
+        String eu = usuario;
+        if (eu != null && nome.equalsIgnoreCase(eu)) {
+            view.mostrarErro("Você não pode conversar consigo mesmo. Escolha outro usuário.");
+            return;
+        }
+        if (!conectado()) {
+            view.mostrarErro(DESCONECTADO);
+            return;
+        }
+        List<String> lista;
+        Map<String, Integer> naoLidasAgora;
+        String canonico;
+        synchronized (lock) {
+            canonico = nomeNaLista(nome);
+            if (!conversas.contains(canonico)) {
+                conversas.add(0, canonico);
+            }
+            naoLidas.remove(canonico);
+            conversaAtual = canonico;
+            lista = new ArrayList<>(conversas);
+            naoLidasAgora = new LinkedHashMap<>(naoLidas);
+        }
+        view.atualizarConversas(lista);
+        view.atualizarNaoLidas(naoLidasAgora);
+        view.mostrarConversa(canonico, List.of());
+        enviarSilencioso("/conversa " + canonico + " " + HISTORICO_CONVERSA);
+    }
+
+    /** Sai da conversa privada e mostra de novo as mensagens da sala atual. */
+    public void voltarParaSala() {
+        if (conversaAtual == null) {
+            return;
+        }
+        conversaAtual = null;
+        List<MensagemTela> daSala;
+        synchronized (lock) {
+            daSala = new ArrayList<>(publicas);
+        }
+        view.substituirHistorico(daSala, salaAtual);
+    }
+
     /** Entra em uma sala (criada se estiver vazia). */
     public void entrarSala(String nome) {
         if (nome == null || nome.isBlank()) {
@@ -484,6 +632,10 @@ public class ChatController {
             return;
         }
         String sala = nome.strip();
+        if (sala.equalsIgnoreCase(salaAtual) && conversaAtual != null) {
+            voltarParaSala();
+            return;
+        }
         if (sala.equalsIgnoreCase(salaAtual)) {
             view.mostrarErro("Você já está na sala " + salaAtual + ".");
             return;
@@ -504,6 +656,9 @@ public class ChatController {
     public void atualizarListas() {
         enviarSilencioso("/users");
         enviarSilencioso("/rooms");
+        if (conversasHabilitadas) {
+            enviarSilencioso("/conversas");
+        }
     }
 
     /** Sai do chat: avisa o servidor e fecha a conexão sem mostrar "sessão encerrada". */

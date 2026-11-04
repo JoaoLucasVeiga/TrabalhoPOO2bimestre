@@ -49,6 +49,10 @@ public interface ChatView {
     default void definirAdministrador(boolean administrador) {
     }
 
+    /** Atualiza quantas mensagens não lidas há em cada conversa (nome do interlocutor para a quantidade). */
+    default void atualizarNaoLidas(java.util.Map<String, Integer> naoLidas) {
+    }
+
     /** Atualiza a lista de conversas privadas (interlocutores, da mais recente para a mais antiga). */
     default void atualizarConversas(List<String> nomes) {
     }
