@@ -87,6 +87,22 @@ public class AuthService {
     }
 
     /**
+     * Cria a conta só se o nome ainda não existir; uma conta existente nunca tem a senha alterada.
+     * Usado na partida do servidor para garantir a conta do administrador.
+     *
+     * @return {@code true} se criou; {@code false} se a conta já existia
+     * @throws IllegalArgumentException se o nome ou a senha forem inválidos
+     */
+    public boolean garantirConta(String nome, String senha) {
+        Usuario usuario = new Usuario(nome);
+        if (repositorio.existe(usuario.nome())) {
+            return false;
+        }
+        registrar(nome, senha);
+        return true;
+    }
+
+    /**
      * Confere nome e senha.
      *
      * @return o usuário, com as maiúsculas do cadastro
