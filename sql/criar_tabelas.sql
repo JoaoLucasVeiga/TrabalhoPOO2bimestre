@@ -19,3 +19,9 @@ CREATE TABLE IF NOT EXISTS mensagem (
 );
 
 CREATE INDEX IF NOT EXISTS idx_mensagem_sala ON mensagem (sala, id);
+
+-- Nomes banidos pelo administrador; a comparação ignora maiúsculas.
+CREATE TABLE IF NOT EXISTS banimento (
+    nome      TEXT PRIMARY KEY COLLATE NOCASE,
+    banido_em TEXT NOT NULL
+);

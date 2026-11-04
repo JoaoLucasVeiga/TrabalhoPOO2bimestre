@@ -86,7 +86,7 @@ O administrador é uma conta definida **na configuração do servidor, fora do c
 3. Inicie o servidor. Ele cria a conta na primeira vez e avisa no terminal. Se a conta já existir, a senha **não** é alterada.
 4. Entre no chat com essa conta. Só ela vê o botão **Exportar** e pode usar os comandos de administração.
 
-O `servidor.properties` está no `.gitignore` e não vai para o GitHub. Em vez do arquivo, dá para usar as variáveis de ambiente `CHAT_ADMIN_USUARIO` e `CHAT_ADMIN_SENHA`, que têm prioridade. O administrador não lê mensagens privadas. Quem foi removido com `/kick` pode entrar de novo, porque não há banimento. Depois de `/limpar`, as telas que já estavam abertas mostram um aviso, mas só perdem as mensagens antigas ao reentrar na sala.
+O `servidor.properties` está no `.gitignore` e não vai para o GitHub. Em vez do arquivo, dá para usar as variáveis de ambiente `CHAT_ADMIN_USUARIO` e `CHAT_ADMIN_SENHA`, que têm prioridade. O administrador não lê mensagens privadas. `/kick` só desconecta: a pessoa pode entrar de novo. Para impedir, use `/ban`, que vale também depois de reiniciar o servidor (fica no banco) e vale até para um nome que ainda não tem conta. Depois de `/limpar`, as telas que já estavam abertas mostram um aviso, mas só perdem as mensagens antigas ao reentrar na sala.
 
 ## 4. Usar o chat e comandos
 
@@ -105,6 +105,9 @@ No cliente gráfico, digite na caixa de baixo e pressione Enter. Os comandos aba
 | `/exportar` | Grava o histórico da sala em um `.txt` no servidor (somente administrador) |
 | `/kick usuario` | Remove um usuário do chat (somente administrador) |
 | `/limpar` | Apaga o histórico da sala atual (somente administrador) |
+| `/ban usuario` | Bane: remove do chat e impede de entrar ou criar conta com esse nome (somente administrador) |
+| `/unban usuario` | Tira o banimento (somente administrador) |
+| `/bans` | Lista os banidos (somente administrador) |
 | `/register nome senha`, `/login nome senha` | Criar conta ou entrar (no terminal) |
 | `/quit` | Sai do chat |
 
@@ -118,7 +121,7 @@ xvfb-run -a mvn test          # inclui os testes de janela (Linux sem tela)
 mvnw javadoc:javadoc          # Javadoc em target/site/apidocs
 ```
 
-São 974 testes. Os 17 testes de janela são ignorados quando não há tela.
+São 1010 testes. Os 17 testes de janela são ignorados quando não há tela.
 
 ## 6. Problemas comuns
 
@@ -133,6 +136,7 @@ São 974 testes. Os 17 testes de janela são ignorados quando não há tela.
 | O Windows pergunta sobre o firewall | Permita o acesso. Em `localhost` normalmente nem aparece |
 | A janela do chat não abre no Windows | Rode `iniciar-cliente-terminal.bat` para ver a mensagem de erro |
 | "O nome ... já está cadastrado" | A conta já existe. Clique em **Entrar** em vez de Criar conta |
+| "Esta conta foi banida pelo administrador" | O administrador baniu essa conta. Peça a ele para usar `/unban` |
 | "Somente o administrador pode usar ..." | O comando é de administração. Configure o administrador (seção 3, "Administrador") e entre com essa conta |
 | "Falta a senha do administrador" | O `servidor.properties` tem `admin.usuario` sem `admin.senha` (ou o contrário). Preencha os dois |
 | "O nome ... já está em uso" | Esse usuário já está online em outra janela. Use outro nome |
@@ -159,7 +163,7 @@ São 974 testes. Os 17 testes de janela são ignorados quando não há tela.
 - Salas (`/join`, `/leave`, `/rooms`).
 - Autenticação com PBKDF2 e salt (`/register`, `/login`).
 - Exportação do histórico (`/exportar`) e log em arquivo, sem o conteúdo das mensagens privadas.
-- Administrador definido por configuração (`/exportar`, `/kick` e `/limpar` só para ele).
+- Administrador definido por configuração (`/exportar`, `/kick`, `/limpar` e banimento com `/ban`, `/unban` e `/bans` só para ele).
 - Interface gráfica com tema claro e escuro.
 
 ### Rubrica (5,0 pontos)
@@ -328,7 +332,7 @@ Chat desconectado:
 
 ## Estado dos testes e limitações
 
-- 974 testes. Sem tela, os 17 testes de janela são ignorados; com `xvfb-run -a mvn test` todos rodam.
+- 1010 testes. Sem tela, os 17 testes de janela são ignorados; com `xvfb-run -a mvn test` todos rodam.
 - Todos os testes passam. O teste da sala (`SalaServiceTest.falhaAoBuscarOHistoricoNaoMudaASalaNemAvisaNinguem`) usava um repositório falso que só falhava ao gravar, e o cenário pede falha ao ler. O defeito era do teste e foi corrigido com um repositório falso que falha na leitura.
 - A senha trafega em texto puro, porque não há TLS. O hash PBKDF2 protege só o que fica gravado no banco.
 - Quando se está lendo mensagens antigas, a janela não avisa que chegaram mensagens novas.

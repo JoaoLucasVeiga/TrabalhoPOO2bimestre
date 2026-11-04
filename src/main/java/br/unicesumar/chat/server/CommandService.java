@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -127,6 +128,13 @@ public class CommandService {
             registrar("exportar", "/exportar",
                     "Grava o histórico da sala atual em um arquivo .txt no servidor." + soAdmin,
                     this::exportar);
+        }
+        if (administradores.restrito() && auth != null && auth.suportaBanimento()) {
+            registrar("ban", "/ban usuario",
+                    "Bane um usuário: remove do chat e impede de entrar (somente administrador).", this::banir);
+            registrar("unban", "/unban usuario", "Tira o banimento de um usuário (somente administrador).",
+                    this::desbanir);
+            registrar("bans", "/bans", "Lista os usuários banidos (somente administrador).", this::listarBanidos);
         }
         if (administradores.restrito()) {
             registrar("kick", "/kick usuario", "Remove um usuário do chat (somente administrador).",
@@ -334,6 +342,53 @@ public class CommandService {
         alvo.enviar(new Evento.Erro("Você foi removido do chat pelo administrador " + meuNome + "."));
         alvo.encerrar();
         origem.enviar(new Evento.Ok("O usuário " + argumentos + " foi removido do chat."));
+    }
+
+    private static String umNome(String argumentos, String uso) {
+        if (argumentos.isEmpty() || indiceDoEspaco(argumentos) >= 0) {
+            throw new IllegalArgumentException("Uso: " + uso);
+        }
+        return argumentos;
+    }
+
+    private void banir(ClienteHandler origem, String argumentos) {
+        exigirAdmin(origem, "/ban");
+        String nome = umNome(argumentos, "/ban usuario. Exemplo: /ban ana");
+        String meuNome = nomeDe(origem);
+        if (nome.equalsIgnoreCase(meuNome)) {
+            throw new IllegalArgumentException("Você não pode banir a si mesmo.");
+        }
+        if (administradores.ehAdmin(nome)) {
+            throw new IllegalArgumentException("Não é possível banir um administrador.");
+        }
+        if (!auth.banir(nome)) {
+            throw new IllegalArgumentException("O usuário '" + nome
+                    + "' já está banido. Use /bans para ver a lista.");
+        }
+        Optional<ClienteHandler> alvo = registry.buscarPorUsuario(nome);
+        alvo.ifPresent(a -> {
+            a.enviar(new Evento.Erro("Você foi banido pelo administrador " + meuNome + "."));
+            a.encerrar();
+        });
+        origem.enviar(new Evento.Ok("O usuário " + nome + " foi banido"
+                + (alvo.isPresent() ? " e removido do chat." : ".")));
+    }
+
+    private void desbanir(ClienteHandler origem, String argumentos) {
+        exigirAdmin(origem, "/unban");
+        String nome = umNome(argumentos, "/unban usuario. Exemplo: /unban ana");
+        if (!auth.desbanir(nome)) {
+            throw new IllegalArgumentException("O usuário '" + nome
+                    + "' não está banido. Use /bans para ver a lista.");
+        }
+        origem.enviar(new Evento.Ok("O usuário " + nome + " pode entrar de novo."));
+    }
+
+    private void listarBanidos(ClienteHandler origem, String argumentos) {
+        exigirAdmin(origem, "/bans");
+        List<String> banidos = auth.listarBanidos();
+        origem.enviar(new Evento.Sistema(banidos.isEmpty() ? "Nenhum usuário banido."
+                : "Banidos (" + banidos.size() + "): " + String.join(", ", banidos)));
     }
 
     private void limpar(ClienteHandler origem, String argumentos) {

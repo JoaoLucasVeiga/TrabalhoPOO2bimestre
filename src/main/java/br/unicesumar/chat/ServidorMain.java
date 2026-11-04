@@ -4,6 +4,7 @@ import br.unicesumar.chat.infra.ConfiguracaoServidor;
 import br.unicesumar.chat.infra.ExportadorHistorico;
 import br.unicesumar.chat.infra.LogArquivo;
 import br.unicesumar.chat.persistence.jdbc.ConnectionFactory;
+import br.unicesumar.chat.persistence.jdbc.JdbcBanimentoRepository;
 import br.unicesumar.chat.persistence.jdbc.JdbcMensagemRepository;
 import br.unicesumar.chat.persistence.jdbc.JdbcUsuarioRepository;
 import br.unicesumar.chat.server.Administradores;
@@ -58,7 +59,8 @@ public final class ServidorMain {
         ClientRegistry registry = new ClientRegistry();
         ChatService chat = new ChatService(new JdbcMensagemRepository(fabrica), registry,
                 Clock.systemDefaultZone());
-        AuthService auth = comAutenticacao ? new AuthService(new JdbcUsuarioRepository(fabrica)) : null;
+        AuthService auth = comAutenticacao ? new AuthService(new JdbcUsuarioRepository(fabrica),
+                AuthService.ITERACOES_PADRAO, new JdbcBanimentoRepository(fabrica)) : null;
         ExportadorHistorico exportador = new ExportadorHistorico(Path.of("exportacoes"), Clock.systemDefaultZone());
         LogArquivo log = new LogArquivo(Path.of("logs", "servidor.log"), Clock.systemDefaultZone());
         Administradores admins;
