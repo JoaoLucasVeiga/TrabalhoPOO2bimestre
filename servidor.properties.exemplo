@@ -1,0 +1,13 @@
+# Configuração do administrador do chat.
+#
+# 1. Copie este arquivo para servidor.properties, na pasta onde o servidor roda.
+# 2. Troque o usuário e escolha uma senha de 6 a 128 caracteres.
+# 3. Reinicie o servidor.
+#
+# O servidor.properties NÃO vai para o GitHub (está no .gitignore). Não coloque a senha
+# neste arquivo de exemplo. As variáveis de ambiente CHAT_ADMIN_USUARIO e CHAT_ADMIN_SENHA,
+# se existirem, valem mais que o arquivo.
+#
+# A conta é criada na primeira vez. Se ela já existir, a senha NÃO é alterada.
+admin.usuario=admin
+admin.senha=

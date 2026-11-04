@@ -77,6 +77,17 @@ O `.jar` precisa ficar ao lado da pasta `target/lib`, onde estão o SQLite e o F
 
 **Em outro computador da mesma rede:** no PC do servidor, descubra o IP (`ipconfig` no Windows). Nos outros PCs, abra o cliente e preencha esse IP em "Servidor", com a mesma porta. A senha trafega sem criptografia (sem TLS), por isso não exponha o servidor na internet.
 
+### Administrador
+
+O administrador é uma conta definida **na configuração do servidor, fora do código**. Sem essa configuração, ninguém é administrador e `/exportar`, `/kick` e `/limpar` ficam bloqueados.
+
+1. Copie `servidor.properties.exemplo` para `servidor.properties`, na pasta onde o servidor roda (a raiz do projeto, se usar os atalhos).
+2. Preencha `admin.usuario` e `admin.senha` (de 6 a 128 caracteres).
+3. Inicie o servidor. Ele cria a conta na primeira vez e avisa no terminal. Se a conta já existir, a senha **não** é alterada.
+4. Entre no chat com essa conta. Só ela vê o botão **Exportar** e pode usar os comandos de administração.
+
+O `servidor.properties` está no `.gitignore` e não vai para o GitHub. Em vez do arquivo, dá para usar as variáveis de ambiente `CHAT_ADMIN_USUARIO` e `CHAT_ADMIN_SENHA`, que têm prioridade. O administrador não lê mensagens privadas. Quem foi removido com `/kick` pode entrar de novo, porque não há banimento. Depois de `/limpar`, as telas que já estavam abertas mostram um aviso, mas só perdem as mensagens antigas ao reentrar na sala.
+
 ## 4. Usar o chat e comandos
 
 No cliente gráfico, digite na caixa de baixo e pressione Enter. Os comandos abaixo também valem na interface gráfica e no terminal.
@@ -91,7 +102,9 @@ No cliente gráfico, digite na caixa de baixo e pressione Enter. Os comandos aba
 | `/buscar texto <trecho>` | Mensagens que contêm o trecho |
 | `/buscar periodo <AAAA-MM-DD> <AAAA-MM-DD>` | Mensagens entre duas datas |
 | `/join sala`, `/leave`, `/rooms` | Entrar em uma sala, voltar para a geral, listar salas |
-| `/exportar` | Grava o histórico da sala em um `.txt` no servidor |
+| `/exportar` | Grava o histórico da sala em um `.txt` no servidor (somente administrador) |
+| `/kick usuario` | Remove um usuário do chat (somente administrador) |
+| `/limpar` | Apaga o histórico da sala atual (somente administrador) |
 | `/register nome senha`, `/login nome senha` | Criar conta ou entrar (no terminal) |
 | `/quit` | Sai do chat |
 
@@ -105,7 +118,7 @@ xvfb-run -a mvn test          # inclui os testes de janela (Linux sem tela)
 mvnw javadoc:javadoc          # Javadoc em target/site/apidocs
 ```
 
-São 908 testes. Os 17 testes de janela são ignorados quando não há tela.
+São 974 testes. Os 17 testes de janela são ignorados quando não há tela.
 
 ## 6. Problemas comuns
 
@@ -120,6 +133,8 @@ São 908 testes. Os 17 testes de janela são ignorados quando não há tela.
 | O Windows pergunta sobre o firewall | Permita o acesso. Em `localhost` normalmente nem aparece |
 | A janela do chat não abre no Windows | Rode `iniciar-cliente-terminal.bat` para ver a mensagem de erro |
 | "O nome ... já está cadastrado" | A conta já existe. Clique em **Entrar** em vez de Criar conta |
+| "Somente o administrador pode usar ..." | O comando é de administração. Configure o administrador (seção 3, "Administrador") e entre com essa conta |
+| "Falta a senha do administrador" | O `servidor.properties` tem `admin.usuario` sem `admin.senha` (ou o contrário). Preencha os dois |
 | "O nome ... já está em uso" | Esse usuário já está online em outra janela. Use outro nome |
 
 ## 7. Requisitos e rubrica
@@ -144,6 +159,7 @@ São 908 testes. Os 17 testes de janela são ignorados quando não há tela.
 - Salas (`/join`, `/leave`, `/rooms`).
 - Autenticação com PBKDF2 e salt (`/register`, `/login`).
 - Exportação do histórico (`/exportar`) e log em arquivo, sem o conteúdo das mensagens privadas.
+- Administrador definido por configuração (`/exportar`, `/kick` e `/limpar` só para ele).
 - Interface gráfica com tema claro e escuro.
 
 ### Rubrica (5,0 pontos)
@@ -312,7 +328,7 @@ Chat desconectado:
 
 ## Estado dos testes e limitações
 
-- 908 testes. Sem tela, os 17 testes de janela são ignorados; com `xvfb-run -a mvn test` todos rodam.
+- 974 testes. Sem tela, os 17 testes de janela são ignorados; com `xvfb-run -a mvn test` todos rodam.
 - Todos os testes passam. O teste da sala (`SalaServiceTest.falhaAoBuscarOHistoricoNaoMudaASalaNemAvisaNinguem`) usava um repositório falso que só falhava ao gravar, e o cenário pede falha ao ler. O defeito era do teste e foi corrigido com um repositório falso que falha na leitura.
 - A senha trafega em texto puro, porque não há TLS. O hash PBKDF2 protege só o que fica gravado no banco.
 - Quando se está lendo mensagens antigas, a janela não avisa que chegaram mensagens novas.
