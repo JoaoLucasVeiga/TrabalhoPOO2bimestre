@@ -48,6 +48,7 @@ public class CommandService {
     private final SalaService salas;
     private final AuthService auth;
     private final ExportadorHistorico exportador;
+    private final Administradores administradores;
     private final Map<String, Registro> comandos = new LinkedHashMap<>();
 
     /** Cria o serviço sem autenticação e com o {@link SalaService} padrão. */
@@ -83,6 +84,21 @@ public class CommandService {
      */
     public CommandService(ChatService chat, ClientRegistry registry, SalaService salas,
             AuthService auth, ExportadorHistorico exportador) {
+        this(chat, registry, salas, auth, exportador, Administradores.semRestricao());
+    }
+
+    /**
+     * Recebe todos os serviços e a lista de administradores. Com restrição, {@code /exportar},
+     * {@code /kick} e {@code /limpar} só funcionam para administradores; sem restrição, os comandos
+     * se comportam como antes (todos podem exportar e {@code /kick} e {@code /limpar} não existem).
+     *
+     * @param auth           serviço de autenticação, ou {@code null} para o modo sem login
+     * @param exportador     grava o {@code /exportar}, ou {@code null} para não oferecer o comando
+     * @param administradores quem pode usar os comandos de administração
+     */
+    public CommandService(ChatService chat, ClientRegistry registry, SalaService salas,
+            AuthService auth, ExportadorHistorico exportador, Administradores administradores) {
+        this.administradores = Objects.requireNonNull(administradores, "administradores");
         this.chat = Objects.requireNonNull(chat, "chat");
         this.registry = Objects.requireNonNull(registry, "registry");
         this.salas = Objects.requireNonNull(salas, "salas");
@@ -106,9 +122,17 @@ public class CommandService {
         registrar("join", "/join sala", "Entra em uma sala (cria se ainda não existir).", this::entrarSala);
         registrar("leave", "/leave", "Sai da sala atual e volta para a geral.", this::sairSala);
         registrar("rooms", "/rooms", "Lista as salas ativas.", this::listarSalas);
+        String soAdmin = administradores.restrito() ? " (somente administrador)" : "";
         if (exportador != null) {
-            registrar("exportar", "/exportar", "Grava o histórico da sala atual em um arquivo .txt no servidor.",
+            registrar("exportar", "/exportar",
+                    "Grava o histórico da sala atual em um arquivo .txt no servidor." + soAdmin,
                     this::exportar);
+        }
+        if (administradores.restrito()) {
+            registrar("kick", "/kick usuario", "Remove um usuário do chat (somente administrador).",
+                    this::remover);
+            registrar("limpar", "/limpar", "Apaga o histórico da sala atual (somente administrador).",
+                    this::limpar);
         }
         registrar("quit", "/quit", "Sai do chat.", this::sair);
     }
@@ -248,6 +272,7 @@ public class CommandService {
     }
 
     private void exportar(ClienteHandler origem, String argumentos) {
+        exigirAdmin(origem, "/exportar");
         if (!argumentos.isEmpty()) {
             throw new IllegalArgumentException(
                     "Uso: /exportar (sem argumentos). O histórico da sua sala atual é gravado em um arquivo .txt.");
@@ -268,6 +293,49 @@ public class CommandService {
             throw new IllegalArgumentException("Não foi possível gravar o arquivo de exportação. "
                     + "Avise quem administra o servidor para verificar o espaço em disco e as permissões.");
         }
+    }
+
+    /** Recusa o comando se quem o pediu não for administrador. */
+    private void exigirAdmin(ClienteHandler origem, String comando) {
+        if (!administradores.ehAdmin(nomeDe(origem))) {
+            throw new IllegalArgumentException("Somente o administrador pode usar " + comando
+                    + ". Peça a quem administra o servidor.");
+        }
+    }
+
+    private static String nomeDe(ClienteHandler origem) {
+        return origem.usuario().map(Usuario::nome).orElse(null);
+    }
+
+    private void remover(ClienteHandler origem, String argumentos) {
+        exigirAdmin(origem, "/kick");
+        if (argumentos.isEmpty() || indiceDoEspaco(argumentos) >= 0) {
+            throw new IllegalArgumentException("Uso: /kick usuario. Exemplo: /kick ana");
+        }
+        String meuNome = nomeDe(origem);
+        if (argumentos.equalsIgnoreCase(meuNome)) {
+            throw new IllegalArgumentException("Você não pode remover a si mesmo. Use /quit para sair.");
+        }
+        if (administradores.ehAdmin(argumentos)) {
+            throw new IllegalArgumentException("Não é possível remover outro administrador.");
+        }
+        ClienteHandler alvo = registry.buscarPorUsuario(argumentos).orElseThrow(() ->
+                new IllegalArgumentException("O usuário '" + argumentos
+                        + "' não está online. Use /users para ver quem está conectado."));
+        alvo.enviar(new Evento.Erro("Você foi removido do chat pelo administrador " + meuNome + "."));
+        alvo.encerrar();
+        origem.enviar(new Evento.Ok("O usuário " + argumentos + " foi removido do chat."));
+    }
+
+    private void limpar(ClienteHandler origem, String argumentos) {
+        exigirAdmin(origem, "/limpar");
+        if (!argumentos.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "Uso: /limpar (sem argumentos). O histórico da sua sala atual é apagado.");
+        }
+        int apagadas = chat.limparSala(origem.sala(), nomeDe(origem));
+        origem.enviar(new Evento.Ok(apagadas + (apagadas == 1 ? " mensagem apagada" : " mensagens apagadas")
+                + " da sala " + origem.sala() + "."));
     }
 
     private void privada(ClienteHandler origem, String argumentos) {
