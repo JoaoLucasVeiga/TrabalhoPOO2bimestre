@@ -287,6 +287,9 @@ public class ChatController {
             case Evento.Historico h -> tratarHistorico(h, eu);
             case Evento.Ok o -> tratarOk(o.texto());
             case Evento.Erro e -> tratarErro(e.texto());
+            case Evento.Conversas c -> view.atualizarConversas(c.nomes());
+            case Evento.Conversa c -> view.mostrarConversa(c.com(),
+                    c.mensagens().stream().map(p -> MensagemTela.privada(p, eu)).toList());
             case Evento.Papel p -> view.definirAdministrador(p.administrador());
         }
     }

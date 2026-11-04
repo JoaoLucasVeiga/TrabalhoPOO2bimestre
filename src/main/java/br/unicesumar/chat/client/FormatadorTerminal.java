@@ -29,8 +29,22 @@ public final class FormatadorTerminal {
                     : "Online em " + u.sala() + " (" + u.nomes().size() + "): " + String.join(", ", u.nomes());
             case Salas s -> s.nomes().isEmpty() ? "Nenhuma sala." : "Salas: " + String.join(", ", s.nomes());
             case Historico h -> historico(h);
+            case Conversas c -> c.nomes().isEmpty() ? "Nenhuma conversa privada."
+                    : "Conversas privadas: " + String.join(", ", c.nomes());
+            case Conversa c -> conversa(c);
             case Papel p -> "";
         };
+    }
+
+    private static String conversa(Conversa c) {
+        if (c.mensagens().isEmpty()) {
+            return "Você ainda não trocou mensagens com " + c.com() + ".";
+        }
+        int n = c.mensagens().size();
+        String linhas = c.mensagens().stream().map(FormatadorTerminal::formatar)
+                .collect(Collectors.joining("\n"));
+        return "--- Conversa com " + c.com() + " (" + n + (n == 1 ? " mensagem" : " mensagens") + ") ---\n"
+                + linhas + "\n--- fim da conversa ---";
     }
 
     private static String historico(Historico h) {

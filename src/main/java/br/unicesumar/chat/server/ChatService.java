@@ -12,6 +12,8 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Predicate;
+import java.util.Optional;
 
 /**
  * Regras principais do chat: valida, persiste e transmite mensagens. Depende só
@@ -26,13 +28,25 @@ public class ChatService {
     public static final int BUSCA_MAXIMA = 50;
 
     private final MensagemRepository repositorio;
+    private final Predicate<String> contaExiste;
     private final ClientRegistry registry;
     private final Clock relogio;
     /** Garante que salvar + transmitir é uma etapa só: todos veem a mesma ordem. */
     private final Object ordem = new Object();
 
-    /** Recebe as dependências por injeção. */
+    /** Recebe as dependências por injeção; sem contas conhecidas, só se envia privada a quem está online. */
     public ChatService(MensagemRepository repositorio, ClientRegistry registry, Clock relogio) {
+        this(repositorio, registry, relogio, nome -> false);
+    }
+
+    /**
+     * Recebe as dependências por injeção.
+     *
+     * @param contaExiste diz se um nome tem conta; permite enviar privada a quem está offline
+     */
+    public ChatService(MensagemRepository repositorio, ClientRegistry registry, Clock relogio,
+            Predicate<String> contaExiste) {
+        this.contaExiste = Objects.requireNonNull(contaExiste, "contaExiste");
         this.repositorio = Objects.requireNonNull(repositorio, "repositorio");
         this.registry = Objects.requireNonNull(registry, "registry");
         this.relogio = Objects.requireNonNull(relogio, "relogio");
@@ -134,9 +148,11 @@ public class ChatService {
         Usuario remetente = origem.usuario().orElseThrow(() -> new IllegalArgumentException(
                 "Informe o seu nome de usuário antes de enviar mensagens."));
         String procurado = nomeDestinatario == null ? "" : nomeDestinatario.strip();
-        ClienteHandler destino = registry.buscarPorUsuario(procurado).orElseThrow(
-                () -> new IllegalArgumentException("O usuário '" + procurado + "' não está online. "
-                        + "Use /users para ver quem está na sala e tente de novo."));
+        Optional<ClienteHandler> online = registry.buscarPorUsuario(procurado);
+        if (online.isEmpty()) {
+            return enviarParaQuemEstaOffline(origem, remetente, procurado, texto);
+        }
+        ClienteHandler destino = online.get();
         Usuario destinatario = destino.usuario().orElseThrow();
         Mensagem nova = Mensagem.privada(remetente, destinatario, origem.sala(), texto,
                 LocalDateTime.now(relogio));
@@ -151,6 +167,29 @@ public class ChatService {
         }
         origem.enviar(evento);
         return salva;
+    }
+
+    /** Destinatário offline com conta: grava para ele ver depois e confirma ao remetente. */
+    private Mensagem enviarParaQuemEstaOffline(ClienteHandler origem, Usuario remetente, String procurado,
+            String texto) {
+        if (procurado.isEmpty() || !contaExiste.test(procurado)) {
+            throw new IllegalArgumentException("O usuário '" + procurado + "' não está online. "
+                    + "Use /users para ver quem está na sala e tente de novo.");
+        }
+        Mensagem salva = repositorio.salvar(Mensagem.privada(remetente, new Usuario(procurado), origem.sala(),
+                texto, LocalDateTime.now(relogio)));
+        origem.enviar(new Evento.Privada(remetente.nome(), procurado, salva.horario(), salva.conteudo()));
+        return salva;
+    }
+
+    /** Com quem o usuário já trocou mensagens privadas, da conversa mais recente para a mais antiga. */
+    public List<String> conversasDe(String usuario) {
+        return repositorio.listarConversas(usuario);
+    }
+
+    /** Últimas mensagens privadas entre dois usuários, nos dois sentidos, da mais antiga para a mais recente. */
+    public List<Mensagem> conversa(String a, String b, int quantidade) {
+        return repositorio.buscarConversa(a, b, quantidade);
     }
 
     /**

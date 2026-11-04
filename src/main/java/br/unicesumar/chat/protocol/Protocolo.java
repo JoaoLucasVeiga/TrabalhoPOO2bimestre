@@ -50,6 +50,18 @@ public final class Protocolo {
             }
             case Ok o -> linha("OK", o.texto());
             case Erro e -> linha("ERRO", e.texto());
+            case Conversas c -> linha("CONVERSAS", c.nomes().toArray(String[]::new));
+            case Conversa c -> {
+                List<String> campos = new ArrayList<>();
+                campos.add(c.com());
+                for (Privada p : c.mensagens()) {
+                    campos.add(p.de());
+                    campos.add(p.para());
+                    campos.add(p.horario().format(ISO));
+                    campos.add(p.texto());
+                }
+                yield linha("CONVERSA", campos.toArray(String[]::new));
+            }
             case Papel p -> linha("PAPEL", p.administrador() ? "admin" : "usuario");
         };
     }
@@ -110,6 +122,19 @@ public final class Protocolo {
             case "ERRO" -> {
                 exigir(tipo, campos, 1);
                 yield new Erro(campos.get(0));
+            }
+            case "CONVERSAS" -> new Conversas(campos);
+            case "CONVERSA" -> {
+                if (campos.isEmpty() || (campos.size() - 1) % CAMPOS_POR_MSG != 0) {
+                    throw new ProtocoloException("Evento CONVERSA fora do formato: o esperado é o nome do "
+                            + "interlocutor e depois grupos de " + CAMPOS_POR_MSG + " campos.");
+                }
+                List<Privada> mensagens = new ArrayList<>();
+                for (int i = 1; i < campos.size(); i += CAMPOS_POR_MSG) {
+                    mensagens.add(new Privada(campos.get(i), campos.get(i + 1), horario(campos.get(i + 2)),
+                            campos.get(i + 3)));
+                }
+                yield new Conversa(campos.get(0), mensagens);
             }
             case "PAPEL" -> {
                 exigir(tipo, campos, 1);

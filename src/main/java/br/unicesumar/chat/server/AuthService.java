@@ -145,6 +145,11 @@ public class AuthService {
         return credencial.orElseThrow().usuario();
     }
 
+    /** Indica se já existe conta com o nome (sem diferenciar maiúsculas). */
+    public boolean contaExiste(String nome) {
+        return nome != null && repositorio.existe(nome);
+    }
+
     /** Indica se este serviço tem onde guardar banimentos. */
     public boolean suportaBanimento() {
         return banimentos != null;

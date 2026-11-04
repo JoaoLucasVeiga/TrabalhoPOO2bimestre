@@ -49,6 +49,14 @@ public interface ChatView {
     default void definirAdministrador(boolean administrador) {
     }
 
+    /** Atualiza a lista de conversas privadas (interlocutores, da mais recente para a mais antiga). */
+    default void atualizarConversas(List<String> nomes) {
+    }
+
+    /** Mostra o histórico de uma conversa privada. Interfaces sem conversas podem ignorar. */
+    default void mostrarConversa(String com, List<MensagemTela> mensagens) {
+    }
+
     /** A sessão terminou sem o usuário pedir (servidor caiu ou encerrou). */
     void sessaoEncerrada(String motivo);
 }

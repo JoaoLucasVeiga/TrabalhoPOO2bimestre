@@ -93,6 +93,32 @@ public sealed interface Evento {
     }
 
     /**
+     * Com quem o usuário já trocou mensagens privadas, da conversa mais recente para a mais antiga.
+     *
+     * @param nomes interlocutores
+     */
+    record Conversas(List<String> nomes) implements Evento {
+        /** Copia a lista de forma imutável. */
+        public Conversas {
+            nomes = List.copyOf(nomes);
+        }
+    }
+
+    /**
+     * Histórico de uma conversa privada, da mensagem mais antiga para a mais recente.
+     *
+     * @param com       o outro usuário da conversa
+     * @param mensagens mensagens trocadas, nos dois sentidos
+     */
+    record Conversa(String com, List<Privada> mensagens) implements Evento {
+        /** Valida o nome e copia a lista de forma imutável. */
+        public Conversa {
+            Objects.requireNonNull(com, "com");
+            mensagens = List.copyOf(mensagens);
+        }
+    }
+
+    /**
      * Papel de quem acabou de entrar, enviado só por servidores que restringem os comandos de
      * administração. A interface usa isso para esconder o que o usuário não pode usar.
      *

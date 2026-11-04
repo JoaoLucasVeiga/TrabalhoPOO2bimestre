@@ -39,6 +39,7 @@ public class CommandService {
     /** Comandos permitidos a quem ainda não entrou (só no modo com autenticação). */
     private static final Set<String> SEM_LOGIN = Set.of("help", "quit", "register", "login");
 
+    private static final int CONVERSA_PADRAO = 50;
     private static final Pattern QUANTIDADE = Pattern.compile("\\d{1,4}");
 
     private record Registro(String uso, String descricao, Comando comando) {
@@ -118,6 +119,10 @@ public class CommandService {
                 this::historico);
         registrar("msg", "/msg usuario texto", "Envia uma mensagem privada a um usuário online.",
                 this::privada);
+        registrar("conversas", "/conversas", "Lista as suas conversas privadas.", this::conversas);
+        registrar("conversa", "/conversa usuario [quantidade]",
+                "Mostra a sua conversa privada com um usuário (de 1 a " + HISTORICO_MAXIMO + " mensagens).",
+                this::conversa);
         registrar("buscar", "/buscar usuario|texto|periodo ...",
                 "Busca no histórico da sala (ex.: /buscar texto java).", this::buscar);
         registrar("join", "/join sala", "Entra em uma sala (cria se ainda não existir).", this::entrarSala);
@@ -400,6 +405,48 @@ public class CommandService {
         int apagadas = chat.limparSala(origem.sala(), nomeDe(origem));
         origem.enviar(new Evento.Ok(apagadas + (apagadas == 1 ? " mensagem apagada" : " mensagens apagadas")
                 + " da sala " + origem.sala() + "."));
+    }
+
+    private void conversas(ClienteHandler origem, String argumentos) {
+        if (!argumentos.isEmpty()) {
+            throw new IllegalArgumentException("Uso: /conversas (sem argumentos).");
+        }
+        origem.enviar(new Evento.Conversas(chat.conversasDe(nomeObrigatorio(origem))));
+    }
+
+    private void conversa(ClienteHandler origem, String argumentos) {
+        String[] partes = argumentos.isEmpty() ? new String[0] : argumentos.split("\\s+");
+        if (partes.length < 1 || partes.length > 2) {
+            throw usoDaConversa();
+        }
+        int quantidade = CONVERSA_PADRAO;
+        if (partes.length == 2) {
+            if (!QUANTIDADE.matcher(partes[1]).matches()) {
+                throw usoDaConversa();
+            }
+            quantidade = Integer.parseInt(partes[1]);
+            if (quantidade < 1 || quantidade > HISTORICO_MAXIMO) {
+                throw usoDaConversa();
+            }
+        }
+        List<Evento.Privada> mensagens = chat.conversa(nomeObrigatorio(origem), partes[0], quantidade).stream()
+                .map(m -> new Evento.Privada(m.remetente().nome(), m.destinatario().orElseThrow().nome(),
+                        m.horario(), m.conteudo()))
+                .toList();
+        origem.enviar(new Evento.Conversa(partes[0], mensagens));
+    }
+
+    private static IllegalArgumentException usoDaConversa() {
+        return new IllegalArgumentException("Uso: /conversa usuario [quantidade], com a quantidade de 1 a "
+                + HISTORICO_MAXIMO + ". Exemplo: /conversa ana 20");
+    }
+
+    private static String nomeObrigatorio(ClienteHandler origem) {
+        String nome = nomeDe(origem);
+        if (nome == null) {
+            throw new IllegalArgumentException("Entre no chat antes de ver as suas conversas.");
+        }
+        return nome;
     }
 
     private void privada(ClienteHandler origem, String argumentos) {
