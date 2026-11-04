@@ -40,6 +40,17 @@ public class MensagemRepositoryEmMemoria implements MensagemRepository {
     }
 
     /** {@inheritDoc} */
+    /** {@inheritDoc} */
+    @Override
+    public synchronized int apagarSala(String sala) {
+        if (sala == null || sala.isBlank()) {
+            throw new IllegalArgumentException("Informe a sala a limpar.");
+        }
+        int antes = mensagens.size();
+        mensagens.removeIf(m -> m.destinatario().isEmpty() && m.sala().equals(sala));
+        return antes - mensagens.size();
+    }
+
     @Override
     public synchronized List<Mensagem> buscarPorUsuario(String sala, String remetente, int limite) {
         ValidacaoBusca.exigirSala(sala);

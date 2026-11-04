@@ -29,6 +29,7 @@ public final class FormatadorTerminal {
                     : "Online em " + u.sala() + " (" + u.nomes().size() + "): " + String.join(", ", u.nomes());
             case Salas s -> s.nomes().isEmpty() ? "Nenhuma sala." : "Salas: " + String.join(", ", s.nomes());
             case Historico h -> historico(h);
+            case Papel p -> "";
         };
     }
 

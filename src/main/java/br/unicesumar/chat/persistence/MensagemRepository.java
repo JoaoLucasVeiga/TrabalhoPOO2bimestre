@@ -66,4 +66,16 @@ public interface MensagemRepository {
             int limite) {
         throw new UnsupportedOperationException("Esta implementação não suporta busca por período.");
     }
+
+    /**
+     * Apaga as mensagens públicas de uma sala. Mensagens privadas não são apagadas.
+     *
+     * @return quantas mensagens foram apagadas
+     * @throws IllegalArgumentException se a sala for nula ou em branco
+     * @throws RepositorioException se a operação falhar
+     * @throws UnsupportedOperationException se a implementação não suporta apagar
+     */
+    default int apagarSala(String sala) {
+        throw new UnsupportedOperationException("Esta implementação não suporta apagar o histórico.");
+    }
 }

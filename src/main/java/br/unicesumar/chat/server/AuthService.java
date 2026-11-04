@@ -2,11 +2,13 @@ package br.unicesumar.chat.server;
 
 import br.unicesumar.chat.model.CredencialUsuario;
 import br.unicesumar.chat.model.Usuario;
+import br.unicesumar.chat.persistence.BanimentoRepository;
 import br.unicesumar.chat.persistence.UsuarioRepository;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.Base64;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.logging.Level;
@@ -42,6 +44,7 @@ public class AuthService {
             "Usuário ou senha incorretos. Confira os dados e tente de novo.";
 
     private final UsuarioRepository repositorio;
+    private final BanimentoRepository banimentos;
     private final int iteracoes;
     private final SecureRandom aleatorio = new SecureRandom();
 
@@ -56,6 +59,16 @@ public class AuthService {
      * @param iteracoes iterações do PBKDF2 usadas em novos cadastros (testes usam poucas)
      */
     public AuthService(UsuarioRepository repositorio, int iteracoes) {
+        this(repositorio, iteracoes, null);
+    }
+
+    /**
+     * Cria o serviço com suporte a banimento.
+     *
+     * @param banimentos nomes banidos, ou {@code null} para não oferecer banimento
+     */
+    public AuthService(UsuarioRepository repositorio, int iteracoes, BanimentoRepository banimentos) {
+        this.banimentos = banimentos;
         this.repositorio = Objects.requireNonNull(repositorio, "repositorio");
         if (iteracoes < 1) {
             throw new IllegalArgumentException("O número de iterações deve ser pelo menos 1.");
@@ -73,6 +86,9 @@ public class AuthService {
     public Usuario registrar(String nome, String senha) {
         Usuario usuario = new Usuario(nome);
         validarSenha(senha);
+        if (estaBanido(nome)) {
+            throw new IllegalArgumentException("O nome '" + nome + "' não pode ser usado. Escolha outro nome.");
+        }
         byte[] salt = new byte[TAMANHO_SALT];
         aleatorio.nextBytes(salt);
         String hash = PREFIXO + "$" + iteracoes + "$"
@@ -84,6 +100,22 @@ public class AuthService {
                     + "Escolha outro nome ou entre com /login nome senha.");
         }
         return usuario;
+    }
+
+    /**
+     * Cria a conta só se o nome ainda não existir; uma conta existente nunca tem a senha alterada.
+     * Usado na partida do servidor para garantir a conta do administrador.
+     *
+     * @return {@code true} se criou; {@code false} se a conta já existia
+     * @throws IllegalArgumentException se o nome ou a senha forem inválidos
+     */
+    public boolean garantirConta(String nome, String senha) {
+        Usuario usuario = new Usuario(nome);
+        if (repositorio.existe(usuario.nome())) {
+            return false;
+        }
+        registrar(nome, senha);
+        return true;
     }
 
     /**
@@ -106,7 +138,60 @@ public class AuthService {
         if (!confere) {
             throw new IllegalArgumentException(LOGIN_INVALIDO);
         }
+        if (estaBanido(nome)) {
+            throw new IllegalArgumentException(
+                    "Esta conta foi banida pelo administrador. Fale com quem administra o servidor.");
+        }
         return credencial.orElseThrow().usuario();
+    }
+
+    /** Indica se este serviço tem onde guardar banimentos. */
+    public boolean suportaBanimento() {
+        return banimentos != null;
+    }
+
+    /**
+     * Bane o nome (a conta existente ou um nome ainda livre).
+     *
+     * @return {@code true} se baniu agora; {@code false} se já estava banido
+     * @throws IllegalArgumentException      se o nome for inválido
+     * @throws UnsupportedOperationException se não há suporte a banimento
+     */
+    public boolean banir(String nome) {
+        exigirSuporte();
+        return banimentos.adicionar(new Usuario(nome).nome());
+    }
+
+    /**
+     * Tira o banimento.
+     *
+     * @return {@code true} se removeu; {@code false} se o nome não estava banido
+     * @throws UnsupportedOperationException se não há suporte a banimento
+     */
+    public boolean desbanir(String nome) {
+        exigirSuporte();
+        return banimentos.remover(nome);
+    }
+
+    /** Indica se o nome está banido (sempre {@code false} sem suporte a banimento). */
+    public boolean estaBanido(String nome) {
+        return banimentos != null && banimentos.existe(nome);
+    }
+
+    /**
+     * Nomes banidos em ordem alfabética.
+     *
+     * @throws UnsupportedOperationException se não há suporte a banimento
+     */
+    public List<String> listarBanidos() {
+        exigirSuporte();
+        return banimentos.listar();
+    }
+
+    private void exigirSuporte() {
+        if (banimentos == null) {
+            throw new UnsupportedOperationException("Este servidor não guarda banimentos.");
+        }
     }
 
     private static void validarSenha(String senha) {

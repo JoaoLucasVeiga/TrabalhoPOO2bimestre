@@ -16,3 +16,5 @@ target/
 # arquivos exportados
 exportacoes/
 logs/
+# configuração local do servidor (tem a senha do administrador)
+servidor.properties

@@ -16,8 +16,8 @@ professor vence qualquer regra daqui em caso de conflito.
 | `persistence.jdbc` | JdbcMensagemRepository, JdbcUsuarioRepository, ConnectionFactory |
 | `persistence.memory` | repositórios em memória (testes) |
 | `protocol` | Protocolo (codificar/decodificar eventos de texto) |
-| `server` | Servidor, ClienteHandler, ClientRegistry, ChatService, CommandService, SalaService, AuthService |
-| `infra` | ExportadorHistorico, LogArquivo |
+| `server` | Servidor, ClienteHandler, ClientRegistry, ChatService, CommandService, SalaService, AuthService, Administradores, PreparoDeAdmin |
+| `infra` | ExportadorHistorico, LogArquivo, ConfiguracaoServidor (servidor.properties e variáveis de ambiente) |
 | `client.net` | ConexaoChat (interface), ConexaoSocket, ConexaoFalsa |
 | `client.controller` | ChatController, ChatView (interface) |
 | `client.ui` | JanelaLogin, JanelaChat, DialogoBusca, Tema (Swing) |
@@ -53,3 +53,4 @@ professor vence qualquer regra daqui em caso de conflito.
 - Objetos de domínio imutáveis. Mensagens de erro dizem o que aconteceu e o que fazer.
 - Alterações localizadas: não reescrever o projeto quando uma mudança pequena resolve.
 - Nunca versionar `*.db`, `target/`, chaves ou tokens.
+- Nenhuma conta, nome de admin ou senha fixos no código: o administrador vem de `servidor.properties` (no `.gitignore`) ou do ambiente.

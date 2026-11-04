@@ -92,6 +92,15 @@ public sealed interface Evento {
         }
     }
 
+    /**
+     * Papel de quem acabou de entrar, enviado só por servidores que restringem os comandos de
+     * administração. A interface usa isso para esconder o que o usuário não pode usar.
+     *
+     * @param administrador {@code true} se o usuário é administrador
+     */
+    record Papel(boolean administrador) implements Evento {
+    }
+
     /** Falha: diz o que aconteceu e o que fazer. */
     record Erro(String texto) implements Evento {
         /** Valida que o texto não é nulo. */
