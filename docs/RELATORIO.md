@@ -18,7 +18,7 @@ O código está dividido em pacotes, e cada um tem uma responsabilidade:
 
 - **persistence:** as interfaces MensagemRepository (mensagens, conversas privadas e limpeza de sala), UsuarioRepository e BanimentoRepository. Todo o SQL fica nas implementações JDBC, em persistence.jdbc.
 
-- **server:** Servidor, ClienteHandler, ClientRegistry e os serviços (ChatService, CommandService, SalaService, AuthService, Administradores e PreparoDeAdmin).
+- **server:** Servidor, ClienteHandler, ClientRegistry e os serviços (ChatService, SequenciadorDeMensagens, MonitorDeConexoes, SalaService, AuthService, Administradores e PreparoDeAdmin). Os comandos ficam em classes por assunto (conta, sala, consulta, conversa e administração), e o CommandService só escolhe qual executar.
 
 - **client:** o cliente de terminal, o controlador (que sabe se o usuário vê uma sala ou uma conversa privada) e as telas Swing (JanelaChat, PainelLateral, LinhaMensagem e AvatarIcon).
 
@@ -30,9 +30,17 @@ O caminho de uma mensagem é este:
 
 2.  O ClienteHandler, que roda na thread daquele cliente, lê a linha e a entrega ao processador.
 
-3.  O ChatService grava a mensagem pelo MensagemRepository e a transmite pelo ClientRegistry.
+3.  O ChatService entrega a mensagem ao sequenciador, que a grava (em lote) pelo MensagemRepository e a transmite pelo ClientRegistry.
 
 4.  Cada cliente conectado recebe a mensagem pela sua própria saída.
+
+![diagrama](diagramas/classes.png)
+
+Figura 1. Classes principais e suas dependências.
+
+![diagrama](diagramas/sequencia.png)
+
+Figura 2. O caminho de uma mensagem, do socket ao banco e ao broadcast.
 
 Algumas decisões de projeto: o ChatService depende da interface do repositório, e a classe JDBC só é escolhida no main. Cada interface tem um adaptador real e um falso (repositório em memória e conexão falsa), o que permite testar sem rede e sem banco. Mensagem é um objeto de valor imutável, Usuario é uma entidade identificada pelo nome e Sala é a raiz do agregado.
 
@@ -48,23 +56,29 @@ Algumas decisões de projeto: o ChatService depende da interface do repositório
 
 Cada cliente roda em uma thread própria. Os recursos que várias threads usam ao mesmo tempo, e como cada um foi protegido, estão na tabela abaixo.
 
-| **Recurso compartilhado**          | **Risco**                                                     | **Como foi tratado**                                                                       |
-|------------------------------------|---------------------------------------------------------------|--------------------------------------------------------------------------------------------|
-| Lista de clientes (ClientRegistry) | Threads entram, saem e percorrem a lista ao mesmo tempo       | Lock privado em todo acesso. O broadcast percorre uma cópia da lista.                      |
-| Ordem das mensagens (ChatService)  | Duas threads poderiam entregar mensagens em ordens diferentes | Salvar e transmitir acontecem sob o mesmo lock. Todos veem a mesma ordem.                  |
-| Escrita no socket de cada cliente  | Um cliente lento travaria o broadcast                         | Fila por cliente e thread de escrita. Acima de 256 KB pendentes, o cliente é desconectado. |
-| Nome de usuário                    | Dois logins iguais ao mesmo tempo                             | Verificar e atribuir é uma operação só. O banco tem UNIQUE.                                |
-| Banco de dados                     | Várias threads gravando                                       | Uma Connection por operação, com WAL e busy_timeout de 5 s.                                |
+| **Recurso compartilhado**                                | **Risco**                                                                                                | **Como foi tratado**                                                                                                                 |
+|----------------------------------------------------------|----------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------|
+| Lista de clientes (ClientRegistry)                       | Threads entram, saem e percorrem a lista ao mesmo tempo                                                  | Lock privado em todo acesso. O broadcast percorre uma cópia da lista.                                                                |
+| Ordem e gravação das mensagens (SequenciadorDeMensagens) | Duas threads poderiam entregar em ordens diferentes, e gravar no banco dentro de um lock atrasaria todos | As threads só enfileiram. Uma única thread consumidora grava em lote (uma transação) e transmite na ordem. Todos veem a mesma ordem. |
+| Escrita no socket de cada cliente                        | Um cliente lento travaria o broadcast                                                                    | Fila por cliente e thread de escrita. Acima de 256 KB pendentes, o cliente é desconectado.                                           |
+| Nome de usuário                                          | Dois logins iguais ao mesmo tempo                                                                        | Verificar e atribuir é uma operação só. O banco tem UNIQUE.                                                                          |
+| Banco de dados                                           | Várias threads gravando                                                                                  | Uma Connection por operação, com WAL e busy_timeout de 5 s.                                                                          |
 
 Os campos lidos por mais de uma thread são volatile ou AtomicBoolean. Quando um cliente cai de repente, a leitura ou a escrita falha, o ClienteHandler encerra a conexão uma única vez, o cliente sai do registro e o servidor continua atendendo os outros.
 
 **Demonstração da condição de corrida.** Duas threads somam 1.000.000 de vezes cada em um contador, e o esperado é 2.000.000. Sem sincronização, o resultado variou: 1.950.533, 1.196.893, 1.983.247 e 1.994.274 em rodadas diferentes. Com synchronized ou AtomicLong, deu sempre 2.000.000. Isso acontece porque as duas threads leem o mesmo valor, as duas somam um e um dos incrementos se perde. O mesmo problema ocorreria na lista de clientes sem o lock.
 
-**Riscos que ficaram.** A gravação no banco acontece dentro do lock de ordem, então um INSERT lento atrasa todos os envios. Foi mantido assim porque a mesma ordem para todos é o requisito. Também não há keep-alive TCP.
+**Produtor-consumidor.** Antes, cada mensagem era gravada com o lock de ordem preso, então um INSERT lento atrasava todos os envios. Agora quem envia coloca a mensagem numa fila e espera o resultado, e uma thread consumidora pega tudo o que está na fila, grava numa transação só e transmite na ordem de gravação. A API continua síncrona, e se uma mensagem do lote falha, o lote é desfeito e cada uma é tentada sozinha, então só a que falhou volta com erro.
+
+**Heartbeat.** O servidor manda um PING a cada 15 segundos. Os clientes do projeto respondem /pong sozinhos. Quem fica 45 segundos sem mandar nada, como um cliente que sumiu sem fechar a conexão, estoura o tempo-limite de leitura e é removido, e os outros recebem o aviso de saída.
+
+**Teste de carga.** Um teste de integração sobe o servidor com o banco SQLite de verdade e 50 clientes reais por socket, cada um enviando 20 mensagens ao mesmo tempo: 1000 mensagens e 50.000 entregas. Ele confere que nenhuma foi perdida nem duplicada, que todos receberam na mesma ordem, que a ordem de cada remetente foi mantida e que o banco tem tudo na mesma ordem. Antes do produtor-consumidor, o teste levava cerca de 3 segundos (330 mensagens gravadas por segundo); depois, de 0,6 a 1 segundo (de 1.000 a 1.800 por segundo).
+
+**Riscos que ficaram.** Há um único consumidor, que é o ponto de serialização: ele garante a ordem, mas limita a vazão ao que uma thread consegue gravar e transmitir. Um cliente genérico que não responde ao PING, como o telnet, é desconectado depois de 45 segundos de silêncio.
 
 ## 5. Testes
 
-São 1125 testes com JUnit 5, todos passando. Os testes unitários não usam rede nem banco real. Os de integração usam SQLite em arquivo temporário e sockets em loopback. Os testes de concorrência usam 8 threads, @RepeatedTest(10), CountDownLatch e join, sem Thread.sleep. O repositório em memória e o JDBC passam pelo mesmo contrato de testes.
+São 1164 testes com JUnit 5, todos passando. Os testes unitários não usam rede nem banco real. Os de integração usam SQLite em arquivo temporário e sockets em loopback. Uma regra de arquitetura testada limita as classes do servidor a 300 linhas. Os testes de concorrência usam 8 threads, @RepeatedTest(10), CountDownLatch e join, sem Thread.sleep. O repositório em memória e o JDBC passam pelo mesmo contrato de testes.
 
 ## 6. Onde a IA foi usada
 
@@ -84,17 +98,13 @@ São 1125 testes com JUnit 5, todos passando. Os testes unitários não usam red
 
 - A senha trafega sem criptografia, porque não há TLS. O hash PBKDF2 com salt protege só o que fica gravado no banco.
 
-- Sem keep-alive, um cliente que some sem aviso só é notado pela fila de escrita ou pelo TCP.
-
-- A gravação dentro do lock de ordem pode atrasar os envios sob carga alta.
-
 - As mensagens não lidas das conversas privadas são contadas só enquanto a janela está aberta; não ficam guardadas entre sessões.
 
 - O banimento é por nome de usuário: quem foi banido pode tentar criar outro nome. Depois de /limpar, as telas já abertas só perdem as mensagens antigas ao reentrar na sala.
 
 - Ao ler mensagens antigas, a janela não avisa que chegaram mensagens novas.
 
-- CommandService e ChatService são as maiores classes e estão no limite do tamanho aceitável.
+- O produtor-consumidor tem um único consumidor, o que limita a vazão ao que uma thread grava e transmite.
 
 - Os testes automáticos de janela rodaram só em Linux. No Windows, o iniciar-tudo.bat abriu o servidor e as janelas do chat.
 

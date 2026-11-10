@@ -33,6 +33,7 @@ public final class FormatadorTerminal {
                     : "Conversas privadas: " + String.join(", ", c.nomes());
             case Conversa c -> conversa(c);
             case Papel p -> "";
+            case Ping p -> "";
         };
     }
 

@@ -16,6 +16,24 @@ public interface MensagemRepository {
     Mensagem salvar(Mensagem mensagem);
 
     /**
+     * Salva várias mensagens de uma vez, na ordem recebida. Implementações com banco devem gravar tudo
+     * numa transação só (ou tudo, ou nada); a padrão salva uma a uma.
+     *
+     * @return as mesmas mensagens, já com id, na mesma ordem
+     * @throws NullPointerException se a lista ou alguma mensagem for nula (nada é gravado)
+     * @throws RepositorioException se a gravação falhar
+     */
+    default List<Mensagem> salvarTodas(List<Mensagem> mensagens) {
+        java.util.Objects.requireNonNull(mensagens, "mensagens");
+        mensagens.forEach(m -> java.util.Objects.requireNonNull(m, "mensagem"));
+        List<Mensagem> salvas = new java.util.ArrayList<>(mensagens.size());
+        for (Mensagem m : mensagens) {
+            salvas.add(salvar(m));
+        }
+        return salvas;
+    }
+
+    /**
      * Busca as últimas mensagens públicas de uma sala. Mensagens privadas nunca
      * são devolvidas.
      *

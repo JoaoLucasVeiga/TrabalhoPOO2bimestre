@@ -104,6 +104,45 @@ public class JdbcMensagemRepository implements MensagemRepository {
         }
     }
 
+    /** {@inheritDoc} Uma conexão e uma transação para o lote inteiro: um só {@code commit} (um só fsync). */
+    @Override
+    public List<Mensagem> salvarTodas(List<Mensagem> mensagens) {
+        Objects.requireNonNull(mensagens, "mensagens");
+        mensagens.forEach(m -> Objects.requireNonNull(m, "mensagem"));
+        if (mensagens.isEmpty()) {
+            return List.of();
+        }
+        try (Connection c = fabrica.abrir()) {
+            c.setAutoCommit(false);
+            try (PreparedStatement ps = c.prepareStatement(INSERIR, Statement.RETURN_GENERATED_KEYS)) {
+                List<Mensagem> salvas = new ArrayList<>(mensagens.size());
+                for (Mensagem m : mensagens) {
+                    ps.setString(1, m.remetente().nome());
+                    ps.setString(2, m.destinatario().map(Usuario::nome).orElse(null));
+                    ps.setString(3, m.sala());
+                    ps.setString(4, m.conteudo());
+                    ps.setString(5, m.horario().format(ISO));
+                    ps.executeUpdate();
+                    try (ResultSet chaves = ps.getGeneratedKeys()) {
+                        if (!chaves.next()) {
+                            throw new RepositorioException("O banco não devolveu o id da mensagem.", null);
+                        }
+                        salvas.add(m.comId(chaves.getLong(1)));
+                    }
+                }
+                c.commit();
+                return salvas;
+            } catch (SQLException | RuntimeException e) {
+                c.rollback(); // o lote é tudo ou nada
+                throw e;
+            }
+        } catch (SQLException e) {
+            LOG.log(Level.SEVERE, "Falha ao salvar o lote de mensagens: " + e.getMessage(), e);
+            throw new RepositorioException(
+                    "Não foi possível salvar as mensagens. Tente novamente em instantes.", e);
+        }
+    }
+
     /** {@inheritDoc} Só apaga as públicas ({@code destinatario IS NULL}). */
     @Override
     public int apagarSala(String sala) {

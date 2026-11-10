@@ -33,6 +33,7 @@ public class ChatService {
     private final Clock relogio;
     /** Garante que salvar + transmitir é uma etapa só: todos veem a mesma ordem. */
     private final Object ordem = new Object();
+    private final SequenciadorDeMensagens sequenciador;
 
     /** Recebe as dependências por injeção; sem contas conhecidas, só se envia privada a quem está online. */
     public ChatService(MensagemRepository repositorio, ClientRegistry registry, Clock relogio) {
@@ -47,6 +48,9 @@ public class ChatService {
     public ChatService(MensagemRepository repositorio, ClientRegistry registry, Clock relogio,
             Predicate<String> contaExiste) {
         this.contaExiste = Objects.requireNonNull(contaExiste, "contaExiste");
+        this.sequenciador = new SequenciadorDeMensagens(
+                Objects.requireNonNull(repositorio, "repositorio"),
+                Objects.requireNonNull(registry, "registry"), ordem);
         this.repositorio = Objects.requireNonNull(repositorio, "repositorio");
         this.registry = Objects.requireNonNull(registry, "registry");
         this.relogio = Objects.requireNonNull(relogio, "relogio");
@@ -61,12 +65,12 @@ public class ChatService {
      */
     public Mensagem enviarMensagem(Usuario remetente, String sala, String texto) {
         Mensagem nova = Mensagem.nova(remetente, sala, texto, relogio);
-        synchronized (ordem) {
-            Mensagem salva = repositorio.salvar(nova);
-            registry.transmitir(Evento.Msg.de(salva),
-                    c -> c.usuario().isPresent() && c.sala().equals(salva.sala()));
-            return salva;
-        }
+        return sequenciador.publicar(nova);
+    }
+
+    /** Quantas mensagens públicas esperam na fila para serem gravadas (usado nos testes). */
+    int mensagensNaFila() {
+        return sequenciador.naFila();
     }
 
     /**

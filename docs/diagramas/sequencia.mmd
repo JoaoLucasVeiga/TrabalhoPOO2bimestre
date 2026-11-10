@@ -1,0 +1,19 @@
+sequenceDiagram
+    autonumber
+    participant C as Cliente
+    participant H as ClienteHandler
+    participant S as ChatService
+    participant Q as Sequenciador
+    participant R as Repositório JDBC
+    participant G as ClientRegistry
+    participant O as Outros clientes
+    C->>H: linha de texto (socket)
+    H->>S: enviarMensagem
+    S->>Q: publicar e esperar
+    Note over Q: lote com tudo da fila
+    Q->>R: salvarTodas (1 transação)
+    R-->>Q: mensagens com id
+    Q->>G: transmitir sob o lock de ordem
+    G->>O: enviar pela fila de cada cliente
+    Q-->>S: mensagem salva
+    S-->>H: pronto

@@ -62,6 +62,7 @@ public final class Protocolo {
                 }
                 yield linha("CONVERSA", campos.toArray(String[]::new));
             }
+            case Ping p -> "PING";
             case Papel p -> linha("PAPEL", p.administrador() ? "admin" : "usuario");
         };
     }
@@ -135,6 +136,10 @@ public final class Protocolo {
                             campos.get(i + 3)));
                 }
                 yield new Conversa(campos.get(0), mensagens);
+            }
+            case "PING" -> {
+                exigir(tipo, campos, 0);
+                yield new Ping();
             }
             case "PAPEL" -> {
                 exigir(tipo, campos, 1);
