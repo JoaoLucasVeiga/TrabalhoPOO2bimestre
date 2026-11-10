@@ -6,68 +6,112 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
-import java.awt.Graphics;
-import java.awt.Graphics2D;
 import java.awt.Insets;
-import java.awt.RenderingHints;
+import java.time.Duration;
 import java.time.format.DateTimeFormatter;
 import java.util.Objects;
 import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTextArea;
+import javax.swing.SwingConstants;
 
 /**
- * Uma mensagem na conversa: um balão arredondado com remetente e horário em fonte menor.
- * As minhas ficam à direita, as dos outros à esquerda e os avisos do sistema ao centro,
- * em cinza e sem balão. Mensagens privadas têm o rótulo "privada" e cor própria.
+ * Uma mensagem na conversa, em bloco: avatar redondo à esquerda e, ao lado, o nome, a hora e o texto.
+ * Mensagens seguidas da mesma pessoa viram continuação (sem avatar nem nome, só o texto). Os avisos
+ * do sistema ficam centralizados, em cinza.
  */
 public class LinhaMensagem extends JPanel {
 
     private static final long serialVersionUID = 1L;
     private static final DateTimeFormatter HORA_MINUTO = DateTimeFormatter.ofPattern("HH:mm");
-    private static final int RAIO = 16;
     private static final int LARGURA_PADRAO = 480;
-    /** Mede a largura do texto sem quebra de linha (só é usado na EDT, sob lock por segurança). */
-    private static final JTextArea MEDIDOR = new JTextArea();
-
-    /** Lado da conversa em que a linha aparece. */
-    public enum Alinhamento { ESQUERDA, DIREITA, CENTRO }
+    private static final int TAMANHO_DO_AVATAR = 40;
+    private static final long MINUTOS_PARA_AGRUPAR = 5;
 
     private final transient Tema tema;
     private final transient MensagemTela mensagem;
-    private final Balao balao;
-    private final Alinhamento alinhamento;
+    private final boolean aviso;
+    private final JLabel avatar = new JLabel();
+    private final JLabel nome = new JLabel();
+    private final JLabel hora = new JLabel();
+    private final JTextArea corpo = new JTextArea();
+    private final JPanel colunaDoAvatar = new JPanel(new BorderLayout());
+    private final JPanel cabecalho = new JPanel();
+    private boolean continuacao;
     private int larguraMaxima = LARGURA_PADRAO;
+    private Dimension tamanhoEmCache;
 
     /** Cria a linha para a mensagem. */
     public LinhaMensagem(Tema tema, MensagemTela mensagem) {
-        super(new GridBagLayout());
+        super(new BorderLayout());
         this.tema = Objects.requireNonNull(tema, "tema");
         this.mensagem = Objects.requireNonNull(mensagem, "mensagem");
-        this.alinhamento = mensagem.tipo() == Tipo.SISTEMA ? Alinhamento.CENTRO
-                : mensagem.minha() ? Alinhamento.DIREITA : Alinhamento.ESQUERDA;
-        this.balao = new Balao();
-        setOpaque(false);
-        GridBagConstraints c = new GridBagConstraints();
-        c.weightx = 1;
-        c.insets = new Insets(Tema.espaco(1) / 2, Tema.espaco(1), Tema.espaco(1) / 2, Tema.espaco(1));
-        c.anchor = switch (alinhamento) {
-            case ESQUERDA -> GridBagConstraints.WEST;
-            case DIREITA -> GridBagConstraints.EAST;
-            case CENTRO -> GridBagConstraints.CENTER;
-        };
-        add(balao, c);
+        this.aviso = mensagem.tipo() == Tipo.SISTEMA;
+        montar();
         getAccessibleContext().setAccessibleName(descricaoAcessivel());
         aplicarTema();
     }
 
+    private void montar() {
+        setOpaque(false);
+        corpo.setText(mensagem.texto());
+        corpo.setEditable(false);
+        corpo.setFocusable(false);
+        corpo.setOpaque(false);
+        corpo.setLineWrap(true);
+        corpo.setWrapStyleWord(true);
+        corpo.setBorder(null);
+        if (aviso) {
+            corpo.setVisible(false);
+            JLabel textoDoAviso = nome; // o aviso usa o rótulo do nome, centralizado
+            textoDoAviso.setText(mensagem.texto());
+            textoDoAviso.setHorizontalAlignment(SwingConstants.CENTER);
+            add(textoDoAviso, BorderLayout.CENTER);
+            atualizarBorda();
+            return;
+        }
+        nome.setText(mensagem.remetente());
+        hora.setText(mensagem.horario().format(HORA_MINUTO));
+        cabecalho.setLayout(new BoxLayout(cabecalho, BoxLayout.X_AXIS));
+        cabecalho.setOpaque(false);
+        cabecalho.add(nome);
+        cabecalho.add(Box.createHorizontalStrut(Tema.espaco(1)));
+        cabecalho.add(hora);
+        cabecalho.add(Box.createHorizontalGlue());
+
+        colunaDoAvatar.setOpaque(false);
+        colunaDoAvatar.add(avatar, BorderLayout.NORTH);
+        colunaDoAvatar.setPreferredSize(new Dimension(TAMANHO_DO_AVATAR + Tema.espaco(2), 1));
+        avatar.setVerticalAlignment(SwingConstants.TOP);
+
+        JPanel conteudo = new JPanel(new BorderLayout());
+        conteudo.setOpaque(false);
+        conteudo.add(cabecalho, BorderLayout.NORTH);
+        conteudo.add(corpo, BorderLayout.CENTER);
+        add(colunaDoAvatar, BorderLayout.WEST);
+        add(conteudo, BorderLayout.CENTER);
+        atualizarBorda();
+    }
+
     private String descricaoAcessivel() {
-        String quem = mensagem.tipo() == Tipo.SISTEMA ? "Aviso" : mensagem.minha() ? "Você" : mensagem.remetente();
-        String privada = mensagem.tipo() == Tipo.PRIVADA ? " (mensagem privada)" : "";
-        return quem + privada + " às " + mensagem.horario().format(HORA_MINUTO) + ": " + mensagem.texto();
+        String quem = aviso ? "Aviso" : mensagem.remetente();
+        return quem + " às " + mensagem.horario().format(HORA_MINUTO) + ": " + mensagem.texto();
+    }
+
+    /**
+     * Indica se a mensagem {@code atual} continua o bloco da {@code anterior}: mesma pessoa, mesmo tipo,
+     * até 5 minutos depois e sem aviso do sistema no meio.
+     */
+    public static boolean agrupa(MensagemTela anterior, MensagemTela atual) {
+        if (anterior == null || atual == null || anterior.tipo() == Tipo.SISTEMA || atual.tipo() == Tipo.SISTEMA
+                || anterior.tipo() != atual.tipo() || !anterior.remetente().equalsIgnoreCase(atual.remetente())
+                || atual.horario().isBefore(anterior.horario())) {
+            return false;
+        }
+        return Duration.between(anterior.horario(), atual.horario()).toMinutes() <= MINUTOS_PARA_AGRUPAR;
     }
 
     /** A mensagem mostrada. */
@@ -75,171 +119,133 @@ public class LinhaMensagem extends JPanel {
         return mensagem;
     }
 
-    /** Lado em que a linha aparece. */
-    public Alinhamento alinhamento() {
-        return alinhamento;
+    /** Define se esta linha continua o bloco da anterior (sem avatar nem nome). */
+    public void definirContinuacao(boolean continua) {
+        boolean nova = continua && !aviso;
+        if (nova == continuacao) {
+            return;
+        }
+        continuacao = nova;
+        atualizarBorda();
+        tamanhoEmCache = null;
+        invalidate();
     }
 
-    /** Texto do cabeçalho (remetente, "privada" e horário); vazio nos avisos do sistema. */
+    /** Indica se esta linha é continuação do bloco anterior. */
+    public boolean continuacao() {
+        return continuacao;
+    }
+
+    /** Indica se a linha mostra o avatar (primeira do bloco e não é aviso do sistema). */
+    public boolean temAvatar() {
+        return !aviso && !continuacao;
+    }
+
+    /** Texto do cabeçalho ({@code nome · hora}); vazio nos avisos do sistema. */
     public String cabecalho() {
-        String hora = mensagem.horario().format(HORA_MINUTO);
-        return switch (mensagem.tipo()) {
-            case SISTEMA -> "";
-            case PUBLICA -> (mensagem.minha() ? "você" : mensagem.remetente()) + " · " + hora;
-            case PRIVADA -> mensagem.minha()
-                    ? "você → " + mensagem.destinatario() + " · privada · " + hora
-                    : mensagem.remetente() + " · privada · " + hora;
-        };
+        return aviso ? "" : mensagem.remetente() + " · " + mensagem.horario().format(HORA_MINUTO);
     }
 
-    /** Cor de fundo do balão; {@code null} nos avisos do sistema, que não têm balão. */
-    public Color corDoBalao() {
-        Tema.Paleta p = tema.paleta();
-        return switch (mensagem.tipo()) {
-            case SISTEMA -> null;
-            case PRIVADA -> p.balaoPrivado();
-            case PUBLICA -> mensagem.minha() ? p.balaoMeu() : p.balaoOutro();
-        };
+    /** Cor do nome: destaque nas minhas mensagens, texto normal nas dos outros. */
+    public Color corDoNome() {
+        return mensagem.minha() ? tema.paleta().textoDestaque() : tema.paleta().texto();
     }
 
-    /** Cor do texto do balão. */
+    /** Cor do texto da mensagem. */
     public Color corDoTexto() {
-        Tema.Paleta p = tema.paleta();
-        return switch (mensagem.tipo()) {
-            case SISTEMA -> p.textoSecundario();
-            case PRIVADA -> p.textoBalaoPrivado();
-            case PUBLICA -> mensagem.minha() ? p.textoBalaoMeu() : p.textoBalaoOutro();
-        };
+        return aviso ? tema.paleta().textoSecundario() : tema.paleta().texto();
     }
 
     /** Fonte do texto da mensagem. */
     public Font fonteDoTexto() {
-        return balao.corpo.getFont();
+        return corpo.getFont();
     }
 
-    /** Fonte menor do cabeçalho. */
+    /** Fonte menor do cabeçalho (a hora). */
     public Font fonteDoCabecalho() {
-        return balao.cabecalho.getFont();
+        return hora.getFont();
     }
 
-    /** Margem interna da área de texto (zero: o cabeçalho e o texto ficam alinhados). */
+    /** Margem interna da área de texto (zero: o nome e o texto ficam alinhados). */
     public Insets margemDoTexto() {
-        return balao.corpo.getMargin();
+        return corpo.getMargin();
+    }
+
+    private void atualizarBorda() {
+        if (aviso) {
+            int respiro = Tema.espaco(1) + 4;
+            setBorder(BorderFactory.createEmptyBorder(respiro, Tema.espaco(2), respiro, Tema.espaco(2)));
+            return;
+        }
+        int topo = continuacao ? 1 : Tema.espaco(2);
+        setBorder(BorderFactory.createEmptyBorder(topo, Tema.espaco(2), 1, Tema.espaco(2)));
+        avatar.setVisible(!continuacao);
+        cabecalho.setVisible(!continuacao);
     }
 
     /**
-     * Reaplica cores, fontes, margem e borda. Trocar o visual do FlatLaf reinstala as margens padrão
+     * Reaplica cores, fontes, margem e avatar. Trocar o visual do FlatLaf reinstala as margens padrão
      * dos componentes, por isso isto precisa rodar a cada troca de tema.
      */
     public void aplicarTema() {
-        balao.corpo.setFont(tema.fonteCorpo());
-        balao.cabecalho.setFont(tema.fontePequena());
-        balao.corpo.setMargin(new Insets(0, 0, 0, 0));
-        balao.corpo.setBorder(null);
-        balao.corpo.setForeground(corDoTexto());
-        balao.cabecalho.setForeground(corDoTexto());
-        balao.limparCache();
-        balao.invalidate();
+        corpo.setFont(tema.fonteCorpo());
+        corpo.setMargin(new Insets(0, 0, 0, 0));
+        corpo.setBorder(null);
+        corpo.setForeground(corDoTexto());
+        if (aviso) {
+            nome.setFont(tema.fontePequena());
+            nome.setForeground(corDoTexto());
+        } else {
+            nome.setFont(tema.fonteCorpo().deriveFont(Font.BOLD));
+            nome.setForeground(corDoNome());
+            hora.setFont(tema.fontePequena());
+            hora.setForeground(tema.paleta().textoSecundario());
+            avatar.setIcon(new AvatarIcon(mensagem.remetente(), TAMANHO_DO_AVATAR, false, tema));
+        }
+        tamanhoEmCache = null;
         invalidate();
-        balao.repaint();
+        repaint();
     }
 
-    /** Define a largura máxima do balão; textos mais longos quebram em mais linhas. */
+    /** Define a largura da linha; textos mais longos quebram em mais linhas. */
     public void definirLarguraMaxima(int pixels) {
         if (pixels < 1) {
             throw new IllegalArgumentException("A largura máxima deve ser positiva.");
         }
         if (pixels != larguraMaxima) {
             larguraMaxima = pixels;
-            balao.limparCache();
-            balao.invalidate();
+            tamanhoEmCache = null;
             invalidate();
         }
     }
 
     @Override
-    public Dimension getMaximumSize() {
-        return new Dimension(Integer.MAX_VALUE, getPreferredSize().height);
-    }
-
-    /** O balão arredondado, com o cabeçalho e o texto (que quebra linha). */
-    private final class Balao extends JPanel {
-        private static final long serialVersionUID = 1L;
-        private final JLabel cabecalho = new JLabel();
-        private final JTextArea corpo = new JTextArea();
-        private Dimension tamanhoEmCache;
-
-        Balao() {
-            super(new BorderLayout());
-            setOpaque(false);
-            boolean comBalao = mensagem.tipo() != Tipo.SISTEMA;
-            setBorder(comBalao
-                    ? BorderFactory.createEmptyBorder(Tema.espaco(1), Tema.espaco(2), Tema.espaco(1), Tema.espaco(2))
-                    : BorderFactory.createEmptyBorder(0, Tema.espaco(1), 0, Tema.espaco(1)));
-            cabecalho.setText(cabecalho());
-            cabecalho.setVisible(comBalao);
-            corpo.setText(mensagem.texto());
-            corpo.setEditable(false);
-            corpo.setFocusable(false);
-            corpo.setOpaque(false);
-            corpo.setLineWrap(true);
-            corpo.setWrapStyleWord(true);
-            corpo.setBorder(null);
-            add(cabecalho, BorderLayout.NORTH);
-            add(corpo, BorderLayout.CENTER);
-        }
-
-        void limparCache() {
-            tamanhoEmCache = null;
-        }
-
-        /** Largura do texto sem quebra, medida pelo mesmo motor de texto que o desenha. */
-        private int larguraNatural() {
-            synchronized (MEDIDOR) {
-                MEDIDOR.setLineWrap(false);
-                MEDIDOR.setFont(corpo.getFont());
-                MEDIDOR.setMargin(new Insets(0, 0, 0, 0));
-                MEDIDOR.setBorder(null);
-                MEDIDOR.setText(mensagem.texto());
-                int texto = MEDIDOR.getPreferredSize().width;
-                int titulo = cabecalho.isVisible() ? cabecalho.getPreferredSize().width : 0;
-                return Math.max(Math.max(texto, titulo), 1);
-            }
-        }
-
-        @Override
-        public Dimension getPreferredSize() {
-            if (tamanhoEmCache == null) {
-                Insets in = getInsets();
-                int maxInterna = Math.max(40, larguraMaxima - in.left - in.right);
-                int largura = Math.min(larguraNatural(), maxInterna);
+    public Dimension getPreferredSize() {
+        if (tamanhoEmCache == null) {
+            Insets in = getInsets();
+            int altura;
+            if (aviso) {
+                altura = nome.getPreferredSize().height;
+            } else {
+                int largura = Math.max(40, larguraMaxima - in.left - in.right - TAMANHO_DO_AVATAR - Tema.espaco(2));
                 corpo.setSize(largura, 1); // com quebra de linha, a altura preferida depende da largura
-                int altura = corpo.getPreferredSize().height
-                        + (cabecalho.isVisible() ? cabecalho.getPreferredSize().height : 0);
-                tamanhoEmCache = new Dimension(largura + in.left + in.right, altura + in.top + in.bottom);
-            }
-            return new Dimension(tamanhoEmCache);
-        }
-
-        @Override
-        public Dimension getMinimumSize() {
-            return getPreferredSize();
-        }
-
-        @Override
-        protected void paintComponent(Graphics g) {
-            Color cor = corDoBalao();
-            if (cor != null) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                try {
-                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                    g2.setColor(cor);
-                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), RAIO, RAIO);
-                } finally {
-                    g2.dispose();
+                altura = corpo.getPreferredSize().height + (continuacao ? 0 : cabecalho.getPreferredSize().height);
+                if (!continuacao) {
+                    altura = Math.max(altura, TAMANHO_DO_AVATAR);
                 }
             }
-            super.paintComponent(g);
+            tamanhoEmCache = new Dimension(larguraMaxima, altura + in.top + in.bottom);
         }
+        return new Dimension(tamanhoEmCache);
+    }
+
+    @Override
+    public Dimension getMinimumSize() {
+        return new Dimension(1, getPreferredSize().height);
+    }
+
+    @Override
+    public Dimension getMaximumSize() {
+        return new Dimension(Integer.MAX_VALUE, getPreferredSize().height);
     }
 }

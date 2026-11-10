@@ -24,12 +24,11 @@ public class PainelMensagens extends JScrollPane {
 
     private static final long serialVersionUID = 1L;
     private static final int TOLERANCIA_DO_FIM = 4;
-    private static final double FRACAO_DA_LARGURA = 0.7;
 
     private final transient Tema tema;
     private final transient List<LinhaMensagem> linhas = new ArrayList<>();
     private final Conteudo conteudo = new Conteudo();
-    private int larguraMaximaDosBaloes = 480;
+    private int larguraDasLinhas = 480;
     private boolean rolarNoProximoLayout;
     private boolean ajustarPosicaoNoProximoLayout;
     private int posicaoAntesDaInsercao;
@@ -78,6 +77,7 @@ public class PainelMensagens extends JScrollPane {
         LinhaMensagem linha = criarLinha(mensagem);
         linhas.add(linha);
         conteudo.add(linha);
+        recalcularAgrupamento();
         rolarNoProximoLayout = rolarNoProximoLayout || noFim;
         reorganizar();
     }
@@ -92,6 +92,7 @@ public class PainelMensagens extends JScrollPane {
             linhas.add(linha);
             conteudo.add(linha);
         }
+        recalcularAgrupamento();
         rolarNoProximoLayout = true;
         ajustarPosicaoNoProximoLayout = false;
         reorganizar();
@@ -112,6 +113,7 @@ public class PainelMensagens extends JScrollPane {
             conteudo.add(linha, indice);
             indice++;
         }
+        recalcularAgrupamento();
         ajustarPosicaoNoProximoLayout = true;
         reorganizar();
     }
@@ -124,8 +126,16 @@ public class PainelMensagens extends JScrollPane {
 
     private LinhaMensagem criarLinha(MensagemTela mensagem) {
         LinhaMensagem linha = new LinhaMensagem(tema, mensagem);
-        linha.definirLarguraMaxima(larguraMaximaDosBaloes);
+        linha.definirLarguraMaxima(larguraDasLinhas);
         return linha;
+    }
+
+    /** Mensagens seguidas da mesma pessoa viram um bloco: só a primeira mostra avatar e nome. */
+    private void recalcularAgrupamento() {
+        for (int i = 0; i < linhas.size(); i++) {
+            boolean continua = i > 0 && LinhaMensagem.agrupa(linhas.get(i - 1).mensagem(), linhas.get(i).mensagem());
+            linhas.get(i).definirContinuacao(continua);
+        }
     }
 
     private void reorganizar() {
@@ -136,7 +146,7 @@ public class PainelMensagens extends JScrollPane {
         }
     }
 
-    /** O balão ocupa no máximo 70% da largura; ao mudar a largura da janela, o texto é rearrumado. */
+    /** As linhas ocupam a largura toda; ao mudar a largura da janela, o texto é rearrumado. */
     @Override
     public void doLayout() {
         super.doLayout();
@@ -144,9 +154,9 @@ public class PainelMensagens extends JScrollPane {
         if (disponivel <= 0) {
             return;
         }
-        int maxima = Math.max(120, (int) (disponivel * FRACAO_DA_LARGURA));
-        if (maxima != larguraMaximaDosBaloes) {
-            larguraMaximaDosBaloes = maxima;
+        int maxima = Math.max(120, disponivel);
+        if (maxima != larguraDasLinhas) {
+            larguraDasLinhas = maxima;
             linhas.forEach(l -> l.definirLarguraMaxima(maxima));
             conteudo.invalidate();
             ((LayoutManager2) conteudo.getLayout()).invalidateLayout(conteudo);

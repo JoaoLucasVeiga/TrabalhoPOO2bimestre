@@ -374,14 +374,6 @@ class PainelChatTest {
     }
 
     @Test
-    void barraDeFerramentasOcupaALarguraTodaDaJanela() throws Exception {
-        edt();
-        LayoutDeTeste.forcar(painel, 1000, 680);
-        assertEquals(1000, painel.barra().getWidth());
-        assertEquals(1000, painel.topo().getWidth());
-    }
-
-    @Test
     void osBotoesDaBarraTemAparenciaDeBotao() throws Exception {
         edt();
         for (var b : List.of(painel.botaoHistorico(), painel.botaoBuscar(), painel.botaoExportar(), painel.botaoSair())) {
@@ -521,5 +513,51 @@ class PainelChatTest {
         assertEquals("oi, ana", painel.mensagens().linha(0).mensagem().texto());
         assertTrue(painel.botaoHistorico().isEnabled());
         assertNull(painel.lateral().conversaAtual());
+    }
+
+    // ---------- layout em três colunas ----------
+
+    @Test
+    void tresColunasSalasAEsquerdaChatNoCentroEMembrosADireita() throws Exception {
+        edt();
+        LayoutDeTeste.forcar(painel, 1200, 700);
+        java.awt.Component esquerda = painel.lateral();
+        java.awt.Component direita = painel.lateral().colunaDosMembros();
+        assertSame(painel, esquerda.getParent());
+        assertSame(painel, direita.getParent());
+        int inicioDoChat = SwingUtilities.convertPoint(painel.mensagens(), 0, 0, painel).x;
+        assertTrue(inicioDoChat >= esquerda.getX() + esquerda.getWidth());
+        assertTrue(inicioDoChat + painel.mensagens().getWidth() <= direita.getX());
+        assertTrue(direita.getX() > esquerda.getX() + esquerda.getWidth());
+        assertEquals(1200, direita.getX() + direita.getWidth());
+    }
+
+    @Test
+    void cabecalhoEBarraDeMensagemFicamSoSobOChatEntreAsDuasColunas() throws Exception {
+        edt();
+        LayoutDeTeste.forcar(painel, 1200, 700);
+        int esquerda = painel.lateral().getWidth();
+        int direita = painel.lateral().colunaDosMembros().getWidth();
+        assertEquals(1200 - esquerda - direita, painel.topo().getWidth());
+        assertEquals(1200 - esquerda - direita, painel.barra().getWidth());
+        assertEquals(1200 - esquerda - direita, painel.entrada().getWidth());
+    }
+
+    @Test
+    void cartaoDoUsuarioSeguePeloLoginEPelaConexao() throws Exception {
+        entrar();
+        assertEquals("ana", painel.lateral().nomeDoCartao());
+        assertEquals("Conectado", painel.lateral().statusDoCartao());
+        controller.sair();
+        esperar(() -> painel.lateral().statusDoCartao().equals("Desconectado"));
+    }
+
+    @Test
+    void textoGuiaDaCaixaSegueASalaEAConversa() throws Exception {
+        entrar();
+        esperar(() -> "Conversar em #geral".equals(painel.entrada().campo().getClientProperty("JTextField.placeholderText")));
+        painel.lateral().atualizarUsuarios(List.of("ana", "bia"), "ana");
+        painel.lateral().acionarUsuario(1);
+        esperar(() -> "Mensagem para @bia".equals(painel.entrada().campo().getClientProperty("JTextField.placeholderText")));
     }
 }

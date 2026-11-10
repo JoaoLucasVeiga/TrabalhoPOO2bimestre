@@ -1,6 +1,7 @@
 package br.unicesumar.chat.client.ui;
 
 import br.unicesumar.chat.model.Mensagem;
+import com.formdev.flatlaf.FlatClientProperties;
 import java.awt.BorderLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -99,8 +100,10 @@ public class PainelEntrada extends JPanel {
     private void aplicarTema() {
         Tema.Paleta p = tema.paleta();
         setBackground(p.fundo());
-        campo.setBackground(p.superficie());
+        campo.setBackground(p.borda());
         campo.setForeground(p.texto());
+        campo.putClientProperty(FlatClientProperties.COMPONENT_ROUND_RECT, true);
+        campo.putClientProperty(FlatClientProperties.STYLE, "margin: 8,16,8,16; borderWidth: 0; focusWidth: 0");
         campo.setCaretColor(p.texto());
         campo.setFont(tema.fonteCorpo());
         contador.setFont(tema.fontePequena());
@@ -127,6 +130,11 @@ public class PainelEntrada extends JPanel {
         }
         aoEnviar.accept(texto);
         campo.setText("");
+    }
+
+    /** Define o texto-guia da caixa de mensagem (por exemplo, "Conversar em #geral"). */
+    public void definirPlaceholder(String texto) {
+        campo.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, Objects.requireNonNull(texto, "texto"));
     }
 
     /** Liga ou desliga o campo e o botão (por exemplo, quando a conexão cai). */

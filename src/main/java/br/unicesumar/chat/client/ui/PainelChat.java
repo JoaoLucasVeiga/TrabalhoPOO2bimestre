@@ -94,6 +94,7 @@ public class PainelChat extends JPanel implements ChatView {
         this.relogioDaFaixa.setRepeats(false);
         this.relogioDoHistorico = new Timer(TEMPO_MAXIMO_DO_HISTORICO_MS, e -> liberarHistorico());
         this.relogioDoHistorico.setRepeats(false);
+        entrada.definirPlaceholder("Conversar em #" + salaAtual);
         montar();
         instalarAtalhos();
         aplicarTema();
@@ -178,10 +179,16 @@ public class PainelChat extends JPanel implements ChatView {
         centro.add(mensagens, BorderLayout.CENTER);
         centro.add(faixaDeAviso, BorderLayout.SOUTH);
 
-        add(norte, BorderLayout.NORTH);
+        // Três colunas: salas e conversas à esquerda, o chat no meio e os membros à direita.
+        JPanel chat = new JPanel(new BorderLayout());
+        chat.setOpaque(false);
+        chat.add(norte, BorderLayout.NORTH);
+        chat.add(centro, BorderLayout.CENTER);
+        chat.add(entrada, BorderLayout.SOUTH);
+
         add(lateral, BorderLayout.WEST);
-        add(centro, BorderLayout.CENTER);
-        add(entrada, BorderLayout.SOUTH);
+        add(chat, BorderLayout.CENTER);
+        add(lateral.colunaDosMembros(), BorderLayout.EAST);
     }
 
     private void instalarAtalhos() {
@@ -398,7 +405,10 @@ public class PainelChat extends JPanel implements ChatView {
 
     @Override
     public void definirUsuario(String nome) {
-        emEdt(() -> usuario = nome);
+        emEdt(() -> {
+            usuario = nome;
+            lateral.definirUsuarioAtual(nome);
+        });
     }
 
     /** Esconde o botão Exportar de quem o servidor diz que não é administrador. */
@@ -415,6 +425,7 @@ public class PainelChat extends JPanel implements ChatView {
     private void definirConexaoNaEdt(EstadoConexao estado) {
         indicador.definir(estado);
         boolean conectado = estado == EstadoConexao.CONECTADO;
+        lateral.definirConectado(conectado);
         entrada.definirHabilitado(conectado);
         atualizarBotoesDaSala();
         botaoNovaSalaHabilitado(conectado);
@@ -450,6 +461,7 @@ public class PainelChat extends JPanel implements ChatView {
             emConversa = false;
             lateral.selecionarConversa(null);
             titulo.setText("# " + sala);
+            entrada.definirPlaceholder("Conversar em #" + sala);
             atualizarBotoesDaSala();
             liberarHistorico();
         });
@@ -462,6 +474,7 @@ public class PainelChat extends JPanel implements ChatView {
             emConversa = true;
             lateral.selecionarConversa(com);
             titulo.setText("@ " + com);
+            entrada.definirPlaceholder("Mensagem para @" + com);
             atualizarBotoesDaSala();
             liberarHistorico();
             entrada.campo().requestFocusInWindow();

@@ -155,7 +155,7 @@ class PainelEntradaTest {
             Tema t = new Tema(modo);
             PainelEntrada p = new PainelEntrada(t, texto -> { });
             Tema.Paleta cores = t.paleta();
-            assertEquals(cores.superficie(), p.campo().getBackground(), "fundo do campo em " + modo);
+            assertEquals(cores.borda(), p.campo().getBackground(), "fundo do campo em " + modo);
             assertEquals(cores.texto(), p.campo().getForeground(), "texto do campo em " + modo);
             assertEquals(cores.texto(), p.campo().getCaretColor(), "cursor do campo em " + modo);
         }
@@ -178,13 +178,23 @@ class PainelEntradaTest {
     }
 
     @Test
+    void campoTemFormatoArredondadoETextoGuiaQueSeAtualiza() {
+        assertEquals(true, painel.campo().getClientProperty("JComponent.roundRect"));
+        painel.definirPlaceholder("Conversar em #geral");
+        assertEquals("Conversar em #geral", painel.campo().getClientProperty("JTextField.placeholderText"));
+        painel.definirPlaceholder("Mensagem para @bia");
+        assertEquals("Mensagem para @bia", painel.campo().getClientProperty("JTextField.placeholderText"));
+        assertThrows(NullPointerException.class, () -> painel.definirPlaceholder(null));
+    }
+
+    @Test
     void trocarDeTemaReaplicaAsCoresDoCampoEDoBotao() {
         Tema t = new Tema(Modo.CLARO);
         PainelEntrada p = new PainelEntrada(t, texto -> { });
         p.campo().setText("oi");
         t.alternar();
         Tema.Paleta escura = t.paleta();
-        assertEquals(escura.superficie(), p.campo().getBackground());
+        assertEquals(escura.borda(), p.campo().getBackground());
         assertEquals(escura.destaque(), p.botaoEnviar().getBackground());
     }
 }
