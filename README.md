@@ -121,7 +121,7 @@ xvfb-run -a mvn test          # inclui os testes de janela (Linux sem tela)
 mvnw javadoc:javadoc          # Javadoc em target/site/apidocs
 ```
 
-São 1010 testes. Os 17 testes de janela são ignorados quando não há tela.
+São 1118 testes. Os 17 testes de janela são ignorados quando não há tela.
 
 ## 6. Problemas comuns
 
@@ -326,13 +326,17 @@ Chat, tema escuro:
 
 ![Chat escuro](docs/prints/06-chat-escuro.png)
 
+Conversa privada:
+
+![Conversa privada](docs/prints/08-conversa-privada.png)
+
 Chat desconectado:
 
 ![Chat desconectado](docs/prints/07-chat-desconectado.png)
 
 ## Estado dos testes e limitações
 
-- 1010 testes. Sem tela, os 17 testes de janela são ignorados; com `xvfb-run -a mvn test` todos rodam.
+- 1118 testes. Sem tela, os 17 testes de janela são ignorados; com `xvfb-run -a mvn test` todos rodam.
 - Todos os testes passam. O teste da sala (`SalaServiceTest.falhaAoBuscarOHistoricoNaoMudaASalaNemAvisaNinguem`) usava um repositório falso que só falhava ao gravar, e o cenário pede falha ao ler. O defeito era do teste e foi corrigido com um repositório falso que falha na leitura.
 - A senha trafega em texto puro, porque não há TLS. O hash PBKDF2 protege só o que fica gravado no banco.
 - Quando se está lendo mensagens antigas, a janela não avisa que chegaram mensagens novas.

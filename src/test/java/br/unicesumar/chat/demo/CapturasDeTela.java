@@ -41,8 +41,7 @@ public final class CapturasDeTela {
                 publica("bia", 0, "Oi, pessoal! Alguém já terminou o trabalho de POO?", false),
                 publica("caio", 1, "Quase. Estou só ajustando os testes de concorrência.", false),
                 publica("ana", 2, "Eu terminei o servidor. O histórico já aparece para quem conecta depois!", true),
-                new MensagemTela(Tipo.PRIVADA, "caio", "ana", T.plusMinutes(3), "Psiu, me manda o script do banco depois?", false),
-                new MensagemTela(Tipo.PRIVADA, "ana", "caio", T.plusMinutes(4), "Mando sim, já te passo.", true),
+                publica("caio", 3, "Alguém tem o script do banco?", false),
                 publica("bia", 5, "Show! Vou testar com três clientes ao mesmo tempo.\nDepois mando os prints.", false),
                 MensagemTela.sistema("dani entrou na sala geral.", T.plusMinutes(6)));
     }
@@ -53,6 +52,16 @@ public final class CapturasDeTela {
         chat.substituirHistorico(conversa(), "geral");
         chat.atualizarUsuarios("geral", List.of("ana", "bia", "caio", "dani"));
         chat.atualizarSalas(List.of("geral", "java", "projeto"), "geral");
+        chat.atualizarConversas(List.of("bia", "caio"));
+        chat.atualizarNaoLidas(java.util.Map.of("bia", 2));
+    }
+
+    private static List<MensagemTela> conversaPrivada() {
+        return List.of(
+                new MensagemTela(Tipo.PRIVADA, "caio", "ana", T.plusMinutes(3), "Psiu, me manda o script do banco depois?", false),
+                new MensagemTela(Tipo.PRIVADA, "ana", "caio", T.plusMinutes(4), "Mando sim, já te passo.", true),
+                new MensagemTela(Tipo.PRIVADA, "ana", "caio", T.plusMinutes(4), "Está em sql/criar_tabelas.sql.", true),
+                new MensagemTela(Tipo.PRIVADA, "caio", "ana", T.plusMinutes(5), "Perfeito, valeu!", false));
     }
 
     private static void salvar(Component c, File arquivo) throws Exception {
@@ -162,6 +171,13 @@ public final class CapturasDeTela {
         });
         esperarEdt();
         salvar(chat[0].getContentPane(), new File(pasta, "06-chat-escuro.png"));
+
+        // ---- conversa privada
+        SwingUtilities.invokeAndWait(() -> chat[0].mostrarConversa("caio", conversaPrivada()));
+        esperarEdt();
+        salvar(chat[0].getContentPane(), new File(pasta, "08-conversa-privada.png"));
+        SwingUtilities.invokeAndWait(() -> chat[0].substituirHistorico(conversa(), "geral"));
+        esperarEdt();
 
         // ---- chat desconectado
         SwingUtilities.invokeAndWait(() -> {

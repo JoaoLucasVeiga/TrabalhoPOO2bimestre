@@ -37,7 +37,9 @@ import javax.swing.DefaultListCellRenderer;
 public class PainelLateral extends JPanel {
 
     private static final long serialVersionUID = 1L;
-    private static final int LARGURA = 208;
+    private static final int LARGURA = 240;
+    private static final int LARGURA_DOS_MEMBROS = 220;
+    private static final int TAMANHO_DO_AVATAR = 28;
 
     private final transient Tema tema;
     private final transient Consumer<String> aoEntrarNaSala;
@@ -50,6 +52,13 @@ public class PainelLateral extends JPanel {
     private final JList<String> listaDeConversas = new JList<>(modeloDeConversas);
     private final JLabel tituloDeConversas = new JLabel("CONVERSAS");
     private final JScrollPane rolagemDeConversas = new JScrollPane(listaDeConversas);
+    private final JPanel colunaDosMembros = new JPanel(new BorderLayout());
+    private final JPanel cartaoDoUsuario = new JPanel(new java.awt.GridBagLayout());
+    private final JLabel avatarDoUsuario = new JLabel();
+    private final JLabel nomeDoUsuario = new JLabel(" ");
+    private final JLabel statusDoUsuario = new JLabel("Desconectado");
+    private boolean conectado;
+    private String nomeDoCartao = "";
     private Map<String, Integer> naoLidas = Map.of();
     private String conversaAtual;
     private final JLabel tituloDeSalas = new JLabel("SALAS");
@@ -103,7 +112,7 @@ public class PainelLateral extends JPanel {
         associarEnter(listaDeSalas, () -> acionarSala(listaDeSalas.getSelectedIndex()));
 
         listaDeUsuarios.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        listaDeUsuarios.setCellRenderer(new RenderizadorDeUsuarios());
+        listaDeUsuarios.setCellRenderer(new CelulaDeMembro());
         listaDeUsuarios.setToolTipText("Usuários online nesta sala. Duplo clique abre uma conversa privada.");
         listaDeUsuarios.getAccessibleContext().setAccessibleName("Lista de usuários online");
         listaDeUsuarios.addMouseListener(new MouseAdapter() {
@@ -118,7 +127,7 @@ public class PainelLateral extends JPanel {
         associarEnter(listaDeUsuarios, () -> acionarUsuario(listaDeUsuarios.getSelectedIndex()));
 
         listaDeConversas.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        listaDeConversas.setCellRenderer(new RenderizadorDeConversas());
+        listaDeConversas.setCellRenderer(new CelulaDeConversa());
         listaDeConversas.setToolTipText("Suas conversas privadas. Clique para abrir; o número é de mensagens não lidas.");
         listaDeConversas.getAccessibleContext().setAccessibleName("Lista de conversas privadas");
         listaDeConversas.addMouseListener(new MouseAdapter() {
@@ -134,8 +143,6 @@ public class PainelLateral extends JPanel {
         tituloDeConversas.setAlignmentX(Component.LEFT_ALIGNMENT);
         rolagemDeConversas.setAlignmentX(Component.LEFT_ALIGNMENT);
         rolagemDeConversas.setBorder(null);
-        rolagemDeConversas.setPreferredSize(new Dimension(LARGURA, Tema.espaco(14)));
-        rolagemDeConversas.setMaximumSize(new Dimension(Integer.MAX_VALUE, Tema.espaco(14)));
 
         botaoNovaSala.setToolTipText("Criar uma sala nova e entrar nela");
         botaoNovaSala.getAccessibleContext().setAccessibleName("Nova sala");
@@ -154,12 +161,41 @@ public class PainelLateral extends JPanel {
         conteudo.add(javax.swing.Box.createVerticalStrut(Tema.espaco(1)));
         conteudo.add(botaoNovaSala);
         conteudo.add(javax.swing.Box.createVerticalStrut(Tema.espaco(2)));
-        conteudo.add(tituloDeUsuarios);
-        conteudo.add(rolagemDeUsuarios);
-        conteudo.add(javax.swing.Box.createVerticalStrut(Tema.espaco(2)));
         conteudo.add(tituloDeConversas);
         conteudo.add(rolagemDeConversas);
         add(conteudo, BorderLayout.CENTER);
+        montarCartaoDoUsuario();
+        add(cartaoDoUsuario, BorderLayout.SOUTH);
+        montarColunaDosMembros();
+    }
+
+    private void montarColunaDosMembros() {
+        colunaDosMembros.setPreferredSize(new Dimension(LARGURA_DOS_MEMBROS, 0));
+        tituloDeUsuarios.setBorder(BorderFactory.createEmptyBorder(Tema.espaco(2), Tema.espaco(2), Tema.espaco(1),
+                Tema.espaco(1)));
+        colunaDosMembros.add(tituloDeUsuarios, BorderLayout.NORTH);
+        colunaDosMembros.add(rolagemDeUsuarios, BorderLayout.CENTER);
+        colunaDosMembros.getAccessibleContext().setAccessibleName("Membros online");
+    }
+
+    private void montarCartaoDoUsuario() {
+        java.awt.GridBagConstraints c = new java.awt.GridBagConstraints();
+        c.gridx = 0;
+        c.gridy = 0;
+        c.gridheight = 2;
+        c.insets = new java.awt.Insets(0, 0, 0, Tema.espaco(1));
+        cartaoDoUsuario.add(avatarDoUsuario, c);
+        c.gridx = 1;
+        c.gridheight = 1;
+        c.weightx = 1;
+        c.fill = java.awt.GridBagConstraints.HORIZONTAL;
+        c.insets = new java.awt.Insets(0, 0, 0, 0);
+        cartaoDoUsuario.add(nomeDoUsuario, c);
+        c.gridy = 1;
+        cartaoDoUsuario.add(statusDoUsuario, c);
+        cartaoDoUsuario.setBorder(BorderFactory.createEmptyBorder(Tema.espaco(1), Tema.espaco(1), Tema.espaco(1),
+                Tema.espaco(1)));
+        cartaoDoUsuario.getAccessibleContext().setAccessibleName("Você");
     }
 
     private static int indiceNoPonto(JList<String> lista, MouseEvent e) {
@@ -189,6 +225,18 @@ public class PainelLateral extends JPanel {
         rolagemDeSalas.setBorder(null); // o FlatLaf reinstala a borda padrão ao trocar de visual
         rolagemDeUsuarios.setBorder(null);
         rolagemDeConversas.setBorder(null);
+        colunaDosMembros.setBackground(p.superficie());
+        colunaDosMembros.setBorder(BorderFactory.createMatteBorder(0, 1, 0, 0, p.borda()));
+        cartaoDoUsuario.setBackground(p.superficie());
+        cartaoDoUsuario.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(1, 0, 0, 0, p.borda()),
+                BorderFactory.createEmptyBorder(Tema.espaco(1), Tema.espaco(1), Tema.espaco(1), Tema.espaco(1))));
+        nomeDoUsuario.setFont(tema.fonteCorpo().deriveFont(Font.BOLD));
+        nomeDoUsuario.setForeground(p.texto());
+        statusDoUsuario.setFont(tema.fontePequena());
+        statusDoUsuario.setForeground(p.textoSecundario());
+        atualizarAvatarDoCartao();
+        setBorder(BorderFactory.createMatteBorder(0, 0, 0, 1, p.borda()));
         for (JLabel titulo : List.of(tituloDeSalas, tituloDeUsuarios, tituloDeConversas)) {
             titulo.setFont(tema.fontePequena().deriveFont(Font.BOLD));
             titulo.setForeground(p.textoSecundario());
@@ -197,6 +245,8 @@ public class PainelLateral extends JPanel {
             lista.setFont(tema.fonteCorpo());
             lista.setBackground(p.superficie());
             lista.setForeground(p.texto());
+            lista.setSelectionBackground(p.borda());
+            lista.setSelectionForeground(p.texto());
         }
         botaoNovaSala.setFont(tema.fonteCorpo());
         repaint();
@@ -249,6 +299,39 @@ public class PainelLateral extends JPanel {
         if (!nome.equalsIgnoreCase(eu)) {
             aoAbrirPrivada.accept(nome);
         }
+    }
+
+    /** Define o nome mostrado no cartão do usuário (rodapé da coluna da esquerda). */
+    public void definirUsuarioAtual(String nome) {
+        nomeDoCartao = Objects.requireNonNull(nome, "nome");
+        nomeDoUsuario.setText(nome.isBlank() ? " " : nome);
+        atualizarAvatarDoCartao();
+    }
+
+    /** Diz se há conexão: o cartão mostra "Conectado" ou "Desconectado". */
+    public void definirConectado(boolean ligado) {
+        conectado = ligado;
+        statusDoUsuario.setText(ligado ? "Conectado" : "Desconectado");
+        atualizarAvatarDoCartao();
+    }
+
+    private void atualizarAvatarDoCartao() {
+        avatarDoUsuario.setIcon(new AvatarIcon(nomeDoCartao, TAMANHO_DO_AVATAR + 4, conectado, tema));
+    }
+
+    /** Nome mostrado no cartão do usuário. */
+    public String nomeDoCartao() {
+        return nomeDoCartao;
+    }
+
+    /** Texto de status do cartão do usuário: "Conectado" ou "Desconectado". */
+    public String statusDoCartao() {
+        return statusDoUsuario.getText();
+    }
+
+    /** Coluna da direita com os membros online; quem monta a janela a coloca no lado direito. */
+    public JPanel colunaDosMembros() {
+        return colunaDosMembros;
     }
 
     /** Atualiza as conversas privadas (a conversa aberta, se houver, continua na lista). */
@@ -401,52 +484,90 @@ public class PainelLateral extends JPanel {
             boolean atual = conversaAtual == null && String.valueOf(valor).equals(salaAtual);
             l.setText("# " + valor);
             l.setFont(atual ? tema.fonteCorpo().deriveFont(Font.BOLD) : tema.fonteCorpo());
+            l.setOpaque(true);
             if (!selecionada) {
-                l.setForeground(atual ? tema.paleta().textoDestaque() : tema.paleta().texto());
-                l.setBackground(tema.paleta().superficie());
+                l.setForeground(atual ? tema.paleta().texto() : tema.paleta().textoSecundario());
+                l.setBackground(atual ? tema.paleta().borda() : tema.paleta().superficie());
             }
             l.setBorder(BorderFactory.createEmptyBorder(Tema.espaco(1) / 2, Tema.espaco(1), Tema.espaco(1) / 2, Tema.espaco(1)));
             return l;
         }
     }
 
-    private final class RenderizadorDeUsuarios extends DefaultListCellRenderer {
+    /** Uma linha de avatar + nome (e, nas conversas, o emblema de não lidas à direita). */
+    private abstract class CelulaComAvatar extends JPanel implements javax.swing.ListCellRenderer<String> {
         private static final long serialVersionUID = 1L;
+        final JLabel nome = new JLabel();
+        final JLabel emblema = new JLabel() {
+            private static final long serialVersionUID = 1L;
 
-        @Override
-        public Component getListCellRendererComponent(JList<?> lista, Object valor, int indice,
-                boolean selecionada, boolean foco) {
-            JLabel l = (JLabel) super.getListCellRendererComponent(lista, valor, indice, selecionada, foco);
-            boolean proprio = String.valueOf(valor).equalsIgnoreCase(eu);
-            l.setText(proprio ? valor + " (você)" : String.valueOf(valor));
-            l.setFont(proprio ? tema.fonteCorpo().deriveFont(Font.BOLD) : tema.fonteCorpo());
-            if (!selecionada) {
-                l.setForeground(proprio ? tema.paleta().textoDestaque() : tema.paleta().texto());
-                l.setBackground(tema.paleta().superficie());
+            @Override
+            protected void paintComponent(java.awt.Graphics g) {
+                java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
+                try {
+                    g2.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING,
+                            java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+                    g2.setColor(tema.paleta().destaque());
+                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), getHeight(), getHeight());
+                } finally {
+                    g2.dispose();
+                }
+                super.paintComponent(g);
             }
-            l.setBorder(BorderFactory.createEmptyBorder(Tema.espaco(1) / 2, Tema.espaco(1), Tema.espaco(1) / 2, Tema.espaco(1)));
-            return l;
+        };
+
+        CelulaComAvatar() {
+            super(new BorderLayout(Tema.espaco(1), 0));
+            add(nome, BorderLayout.CENTER);
+            add(emblema, BorderLayout.EAST);
+            emblema.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+            emblema.setBorder(BorderFactory.createEmptyBorder(1, Tema.espaco(1), 1, Tema.espaco(1)));
+            emblema.setOpaque(false);
+            setBorder(BorderFactory.createEmptyBorder(Tema.espaco(1) / 2, Tema.espaco(1), Tema.espaco(1) / 2,
+                    Tema.espaco(1)));
+        }
+
+        /** Pinta fundo, texto e emblema (vazio esconde o emblema). */
+        void preencher(String texto, String nomeDoAvatar, boolean online, boolean destacada, boolean selecionada,
+                String textoDoEmblema, boolean negrito) {
+            Tema.Paleta p = tema.paleta();
+            nome.setIcon(new AvatarIcon(nomeDoAvatar, TAMANHO_DO_AVATAR, online, tema));
+            nome.setText(texto);
+            nome.setIconTextGap(Tema.espaco(1) + 2);
+            nome.setFont(negrito ? tema.fonteCorpo().deriveFont(Font.BOLD) : tema.fonteCorpo());
+            nome.setForeground(destacada || negrito ? p.texto() : p.textoSecundario());
+            setBackground(selecionada || destacada ? p.borda() : p.superficie());
+            emblema.setVisible(textoDoEmblema != null);
+            emblema.setText(textoDoEmblema == null ? "" : textoDoEmblema);
+            emblema.setFont(tema.fontePequena().deriveFont(Font.BOLD));
+            emblema.setForeground(p.textoSobreDestaque());
         }
     }
 
-    private final class RenderizadorDeConversas extends DefaultListCellRenderer {
+    private final class CelulaDeMembro extends CelulaComAvatar {
         private static final long serialVersionUID = 1L;
 
         @Override
-        public Component getListCellRendererComponent(JList<?> lista, Object valor, int indice,
+        public Component getListCellRendererComponent(JList<? extends String> lista, String valor, int indice,
                 boolean selecionada, boolean foco) {
-            JLabel l = (JLabel) super.getListCellRendererComponent(lista, valor, indice, selecionada, foco);
-            String nome = String.valueOf(valor);
-            boolean aberta = conversaAtual != null && conversaAtual.equalsIgnoreCase(nome);
-            boolean comNaoLidas = naoLidasDe(nome) > 0;
-            l.setText("@ " + nome + (comNaoLidas ? " (" + naoLidasDe(nome) + ")" : ""));
-            l.setFont(aberta || comNaoLidas ? tema.fonteCorpo().deriveFont(Font.BOLD) : tema.fonteCorpo());
-            if (!selecionada) {
-                l.setForeground(aberta || comNaoLidas ? tema.paleta().textoDestaque() : tema.paleta().texto());
-                l.setBackground(tema.paleta().superficie());
-            }
-            l.setBorder(BorderFactory.createEmptyBorder(Tema.espaco(1) / 2, Tema.espaco(1), Tema.espaco(1) / 2, Tema.espaco(1)));
-            return l;
+            boolean proprio = valor.equalsIgnoreCase(eu);
+            preencher(proprio ? valor + " (você)" : valor, valor, true, false, selecionada, null, proprio);
+            return this;
+        }
+    }
+
+    private final class CelulaDeConversa extends CelulaComAvatar {
+        private static final long serialVersionUID = 1L;
+
+        @Override
+        public Component getListCellRendererComponent(JList<? extends String> lista, String valor, int indice,
+                boolean selecionada, boolean foco) {
+            boolean aberta = conversaAtual != null && conversaAtual.equalsIgnoreCase(valor);
+            int n = naoLidasDe(valor);
+            boolean online = java.util.Collections.list(modeloDeUsuarios.elements()).stream()
+                    .anyMatch(u -> u.equalsIgnoreCase(valor));
+            preencher(valor, valor, online, aberta, selecionada, n > 0 ? String.valueOf(n) : null, n > 0);
+            return this;
         }
     }
 }

@@ -99,7 +99,14 @@ public final class Tema {
     /** Cor do avatar de um nome: sempre a mesma para o mesmo nome (sem diferenciar maiúsculas). */
     public static Color corDoAvatar(String nome) {
         String chave = nome == null ? "" : nome.strip().toLowerCase(java.util.Locale.ROOT);
-        return AVATARES.get(Math.floorMod(chave.hashCode(), AVATARES.size()));
+        int h = 0x811C9DC5; // FNV-1a: nomes curtos e parecidos ("ana", "dani") caem em cores diferentes
+        for (byte b : chave.getBytes(java.nio.charset.StandardCharsets.UTF_8)) {
+            h = (h ^ (b & 0xFF)) * 0x01000193;
+        }
+        h ^= h >>> 15;
+        h *= 0x2C1B3C6D;
+        h ^= h >>> 12;
+        return AVATARES.get(Math.floorMod(h, AVATARES.size()));
     }
 
     /** Múltiplo da grade de 8 px. */

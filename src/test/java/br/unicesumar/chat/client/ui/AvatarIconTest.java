@@ -54,6 +54,15 @@ class AvatarIconTest {
     }
 
     @Test
+    void quatroNomesComunsNaoFicamTodosNaMesmaCorNemEmSoDuas() {
+        Set<Color> cores = new HashSet<>();
+        for (String nome : new String[] {"ana", "bia", "caio", "dani"}) {
+            cores.add(Tema.corDoAvatar(nome));
+        }
+        assertTrue(cores.size() >= 3, "só " + cores.size() + " cores para 4 nomes");
+    }
+
+    @Test
     void textoBrancoContrastaComTodasAsCoresDeAvatar() {
         for (Color cor : Tema.coresDeAvatar()) {
             assertTrue(Tema.contraste(Color.WHITE, cor) >= 4.5, "contraste baixo com " + cor);

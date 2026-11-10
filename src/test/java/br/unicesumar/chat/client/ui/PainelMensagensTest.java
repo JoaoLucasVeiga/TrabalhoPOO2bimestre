@@ -150,16 +150,6 @@ class PainelMensagensTest {
     }
 
     @Test
-    void osBaloesNaoPassamDe70PorCentoDaLarguraDaJanela() {
-        painel.substituir(List.of(msg("bia", "palavra ".repeat(80))));
-        arrumar();
-        int larguraDaJanela = painel.getViewport().getWidth();
-        int larguraDoBalao = painel.linha(0).getPreferredSize().width;
-        assertTrue(larguraDoBalao <= (int) (larguraDaJanela * 0.7) + 2 * Tema.espaco(1) + 2,
-                "balão " + larguraDoBalao + " janela " + larguraDaJanela);
-    }
-
-    @Test
     void estreitarAJanelaRearrumaOsBaloesEmMaisAltura() {
         painel.substituir(List.of(msg("bia", "palavra ".repeat(40))));
         LayoutDeTeste.forcar(painel, 800, 300);
@@ -172,7 +162,7 @@ class PainelMensagensTest {
     void mudarOTemaRecoloreAsLinhasExistentes() {
         painel.adicionar(msg("bia", "x"));
         tema.alternar();
-        assertEquals(Tema.paleta(Modo.ESCURO).balaoOutro(), painel.linha(0).corDoBalao());
+        assertEquals(Tema.paleta(Modo.ESCURO).texto(), painel.linha(0).corDoTexto());
     }
 
     @Test
@@ -191,5 +181,56 @@ class PainelMensagensTest {
     @Test
     void rolagemPorRoletaTemPassoConfortavel() {
         assertTrue(painel.getVerticalScrollBar().getUnitIncrement() >= 16);
+    }
+
+    // ---------- blocos: mensagens seguidas da mesma pessoa ----------
+
+    private static MensagemTela msgEm(String de, int minuto, String texto) {
+        return new MensagemTela(MensagemTela.Tipo.PUBLICA, de, null, T.plusMinutes(minuto), texto, false);
+    }
+
+    @Test
+    void mensagensSeguidasDaMesmaPessoaViramUmBlocoSoComOPrimeiroComAvatar() {
+        painel.adicionar(msgEm("bia", 0, "um"));
+        painel.adicionar(msgEm("bia", 1, "dois"));
+        painel.adicionar(msgEm("caio", 2, "tres"));
+        painel.adicionar(msgEm("bia", 3, "quatro"));
+        assertFalse(painel.linha(0).continuacao());
+        assertTrue(painel.linha(1).continuacao());
+        assertFalse(painel.linha(2).continuacao());
+        assertFalse(painel.linha(3).continuacao());
+    }
+
+    @Test
+    void avisoDoSistemaNoMeioInterrompeOBloco() {
+        painel.adicionar(msgEm("bia", 0, "um"));
+        painel.adicionar(MensagemTela.sistema("caio entrou", T.plusMinutes(1)));
+        painel.adicionar(msgEm("bia", 2, "dois"));
+        assertFalse(painel.linha(2).continuacao());
+    }
+
+    @Test
+    void substituirRecalculaOAgrupamento() {
+        painel.adicionar(msgEm("bia", 0, "velha"));
+        painel.substituir(List.of(msgEm("caio", 0, "a"), msgEm("caio", 1, "b")));
+        assertFalse(painel.linha(0).continuacao());
+        assertTrue(painel.linha(1).continuacao());
+    }
+
+    @Test
+    void inserirMensagemAnteriorDaMesmaPessoaTransformaAPrimeiraExistenteEmContinuacao() {
+        painel.adicionar(msgEm("bia", 5, "depois"));
+        assertFalse(painel.linha(0).continuacao());
+        painel.inserirNoInicio(List.of(msgEm("bia", 4, "antes")));
+        assertFalse(painel.linha(0).continuacao());
+        assertTrue(painel.linha(1).continuacao());
+    }
+
+    @Test
+    void asLinhasOcupamALarguraDaJanelaInteira() {
+        painel.adicionar(msg("bia", "oi"));
+        arrumar();
+        int largura = painel.getViewport().getWidth();
+        assertEquals(largura, painel.linha(0).getPreferredSize().width);
     }
 }
