@@ -119,6 +119,13 @@ public sealed interface Evento {
     }
 
     /**
+     * Pergunta periódica do servidor ("você ainda está aí?"). O cliente responde com {@code /pong}; quem
+     * deixa de responder é desconectado. Quem usa a conexão nunca vê este evento.
+     */
+    record Ping() implements Evento {
+    }
+
+    /**
      * Papel de quem acabou de entrar, enviado só por servidores que restringem os comandos de
      * administração. A interface usa isso para esconder o que o usuário não pode usar.
      *

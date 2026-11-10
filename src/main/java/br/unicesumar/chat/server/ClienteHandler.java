@@ -82,6 +82,9 @@ public class ClienteHandler implements Runnable {
         return new ClienteHandler(entrada, saida, fechador, processador);
     }
 
+    /** Linha que o cliente manda em resposta ao {@code PING}; serve só para provar que está vivo. */
+    public static final String RESPOSTA_AO_PING = "/pong";
+
     /** Laço de leitura: roda na thread da conexão até o cliente sair ou cair. */
     @Override
     public void run() {
@@ -89,7 +92,9 @@ public class ClienteHandler implements Runnable {
             processador.aoConectar(this);
             String linha;
             while (ativo && (linha = entrada.readLine()) != null) {
-                tratar(linha);
+                if (!linha.equals(RESPOSTA_AO_PING)) {
+                    tratar(linha);
+                }
             }
         } catch (IOException e) {
             LOG.log(Level.INFO, "Conexão encerrada: {0}", e.getMessage());

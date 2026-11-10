@@ -72,16 +72,26 @@ public class ConexaoSocket implements ConexaoChat {
         if (in == null) {
             throw new IOException("A conexão ainda não foi aberta.");
         }
-        String linha;
-        try {
-            linha = in.readLine();
-        } catch (IOException e) {
-            if (fechada) {
+        while (true) {
+            String linha;
+            try {
+                linha = in.readLine();
+            } catch (IOException e) {
+                if (fechada) {
+                    return null;
+                }
+                throw e;
+            }
+            if (linha == null) {
                 return null;
             }
-            throw e;
+            Evento evento = Protocolo.decodificar(linha);
+            if (evento instanceof Evento.Ping) {
+                enviar("/pong"); // o servidor só quer saber se ainda estamos aqui
+                continue;
+            }
+            return evento;
         }
-        return linha == null ? null : Protocolo.decodificar(linha);
     }
 
     /** {@inheritDoc} Usa {@code SO_TIMEOUT} do socket; pode ser chamado antes de abrir (vale ao abrir). */

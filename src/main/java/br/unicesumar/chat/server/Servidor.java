@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
+import java.time.Duration;
 import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -21,12 +22,20 @@ public class Servidor {
 
     private static final Logger LOG = Logger.getLogger(Servidor.class.getName());
 
+    /** Intervalo padrão entre os PING do servidor. */
+    public static final Duration INTERVALO_DO_PING = Duration.ofSeconds(15);
+
+    /** Tempo padrão sem receber nada de um cliente antes de desconectá-lo (três PING sem resposta). */
+    public static final Duration TEMPO_LIMITE_SEM_RESPOSTA = Duration.ofSeconds(45);
+
     private final int porta;
     private final ClientRegistry registry;
     private final ProcessadorEntrada processador;
     private final AtomicInteger contador = new AtomicInteger();
     private final ExecutorService clientes = Executors.newCachedThreadPool(daemon("cliente-"));
     private volatile ServerSocket socketDeEscuta;
+    private final Duration tempoLimiteSemLer;
+    private final MonitorDeConexoes monitor;
     private volatile boolean parado;
     private volatile Thread threadDeAccept;
 
@@ -43,9 +52,29 @@ public class Servidor {
      * @param processador quem interpreta as linhas dos clientes
      */
     public Servidor(int porta, ClientRegistry registry, ProcessadorEntrada processador) {
+        this(porta, registry, processador, INTERVALO_DO_PING, TEMPO_LIMITE_SEM_RESPOSTA);
+    }
+
+    /**
+     * Cria o servidor com heartbeat configurável.
+     *
+     * @param intervaloDoPing    de quanto em quanto tempo o servidor pergunta se o cliente está vivo
+     * @param tempoLimiteSemLer  quanto tempo sem receber nada (nem a resposta ao PING) até desconectar;
+     *                           precisa ser maior que o intervalo do PING
+     */
+    public Servidor(int porta, ClientRegistry registry, ProcessadorEntrada processador,
+            Duration intervaloDoPing, Duration tempoLimiteSemLer) {
         if (porta < 0 || porta > 65535) {
             throw new IllegalArgumentException("Porta inválida: " + porta + ". Use de 0 a 65535.");
         }
+        Objects.requireNonNull(intervaloDoPing, "intervaloDoPing");
+        Objects.requireNonNull(tempoLimiteSemLer, "tempoLimiteSemLer");
+        if (tempoLimiteSemLer.compareTo(intervaloDoPing) <= 0) {
+            throw new IllegalArgumentException("O tempo-limite sem resposta (" + tempoLimiteSemLer.toMillis()
+                    + " ms) precisa ser maior que o intervalo do PING (" + intervaloDoPing.toMillis() + " ms).");
+        }
+        this.tempoLimiteSemLer = tempoLimiteSemLer;
+        this.monitor = new MonitorDeConexoes(registry, intervaloDoPing);
         this.porta = porta;
         this.registry = Objects.requireNonNull(registry, "registry");
         this.processador = removendoDoRegistro(Objects.requireNonNull(processador, "processador"));
@@ -98,6 +127,7 @@ public class Servidor {
             throw new IOException("Não foi possível abrir a porta " + porta
                     + ". Verifique se ela já está em uso e tente outra porta.", e);
         }
+        monitor.iniciar();
         threadDeAccept = new Thread(this::aceitarConexoes, "servidor-accept");
         threadDeAccept.setDaemon(true);
         threadDeAccept.start();
@@ -128,6 +158,8 @@ public class Servidor {
 
     private void entregar(Socket socket) {
         try {
+            socket.setKeepAlive(true);
+            socket.setSoTimeout((int) tempoLimiteSemLer.toMillis()); // cliente "zumbi" estoura e é removido
             ClienteHandler handler = ClienteHandler.de(socket, processador);
             registry.adicionar(handler);
             try {
@@ -167,6 +199,7 @@ public class Servidor {
     /** Para de aceitar conexões. Pode ser chamado várias vezes. */
     public void parar() {
         parado = true;
+        monitor.parar();
         ServerSocket escuta = socketDeEscuta;
         if (escuta != null) {
             try {

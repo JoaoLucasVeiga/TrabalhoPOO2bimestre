@@ -301,6 +301,7 @@ public class ChatController {
             case Evento.Erro e -> tratarErro(e.texto());
             case Evento.Conversas c -> tratarConversas(c.nomes());
             case Evento.Conversa c -> tratarConversa(c, eu);
+            case Evento.Ping p -> { } // a conexão já respondeu; não há o que mostrar
             case Evento.Papel p -> view.definirAdministrador(p.administrador());
         }
     }
