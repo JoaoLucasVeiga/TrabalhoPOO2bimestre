@@ -10,6 +10,7 @@ target/
 *.key
 *.jks
 *.p12
+chat-tls.crt
 .env
 *token*
 *secret*

@@ -11,3 +11,10 @@
 # A conta é criada na primeira vez. Se ela já existir, a senha NÃO é alterada.
 admin.usuario=admin
 admin.senha=
+
+# TLS opcional (só vale quando o servidor sobe com --tls).
+# A senha protege o arquivo da chave (de 6 a 128 caracteres). Pode vir da variável CHAT_TLS_SENHA.
+# O keystore e o certificado são criados na primeira vez com o keytool do Java.
+#tls.senha=
+#tls.keystore=chat-tls.p12
+#tls.certificado=chat-tls.crt
