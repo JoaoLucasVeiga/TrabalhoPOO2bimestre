@@ -40,6 +40,8 @@ public class PainelEntrada extends JPanel {
     private final JTextField campo = new JTextField();
     private final JLabel contador = new JLabel("0/" + LIMITE, SwingConstants.RIGHT);
     private final JButton botaoEnviar = new JButton("Enviar");
+    private final JButton botaoEmojis = new JButton("\uD83D\uDE00");
+    private final SeletorDeEmojis seletor = new SeletorDeEmojis(this::inserirEmoji);
     private boolean habilitado = true;
 
     /**
@@ -93,6 +95,11 @@ public class PainelEntrada extends JPanel {
         direita.add(contador, c);
         c.gridx = 1;
         direita.add(botaoEnviar, c);
+        botaoEmojis.setToolTipText("Escolher um emoji");
+        botaoEmojis.getAccessibleContext().setAccessibleName("Emojis");
+        botaoEmojis.setFocusable(false);
+        botaoEmojis.addActionListener(e -> seletor.show(botaoEmojis, 0, -seletor.getPreferredSize().height));
+        add(botaoEmojis, BorderLayout.WEST);
         add(campo, BorderLayout.CENTER);
         add(direita, BorderLayout.EAST);
     }
@@ -108,6 +115,7 @@ public class PainelEntrada extends JPanel {
         campo.setFont(tema.fonteCorpo());
         contador.setFont(tema.fontePequena());
         botaoEnviar.setFont(tema.fonteCorpo());
+        botaoEmojis.setFont(new java.awt.Font(java.awt.Font.DIALOG, java.awt.Font.PLAIN, 18));
         atualizar();
     }
 
@@ -130,6 +138,24 @@ public class PainelEntrada extends JPanel {
         }
         aoEnviar.accept(texto);
         campo.setText("");
+    }
+
+    /**
+     * Insere o emoji na posição do cursor. Se não couber no limite de 500 caracteres, nada acontece
+     * (um emoji nunca é cortado ao meio).
+     */
+    public void inserirEmoji(String emoji) {
+        Objects.requireNonNull(emoji, "emoji");
+        if (campo.getText().length() + emoji.length() > LIMITE) {
+            return;
+        }
+        campo.replaceSelection(emoji);
+        campo.requestFocusInWindow();
+    }
+
+    /** Botão que abre o seletor de emojis. */
+    public JButton botaoEmojis() {
+        return botaoEmojis;
     }
 
     /** Define o texto-guia da caixa de mensagem (por exemplo, "Conversar em #geral"). */
@@ -174,6 +200,9 @@ public class PainelEntrada extends JPanel {
             int cabe = LIMITE - (fb.getDocument().getLength() - tamanho);
             if (cabe < novo.length()) {
                 novo = novo.substring(0, Math.max(0, cabe));
+                if (!novo.isEmpty() && Character.isHighSurrogate(novo.charAt(novo.length() - 1))) {
+                    novo = novo.substring(0, novo.length() - 1); // não parte um emoji ao meio
+                }
             }
             super.replace(fb, offset, tamanho, novo, attr);
         }

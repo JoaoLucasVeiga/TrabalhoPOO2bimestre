@@ -113,7 +113,7 @@ No cliente gráfico, digite na caixa de baixo e pressione Enter. Duplo clique em
 | `/register nome senha`, `/login nome senha` | Criar conta ou entrar (no terminal) |
 | `/quit` | Sai do chat |
 
-Cada mensagem tem no máximo 500 caracteres e aparece como `[HH:mm] nome: texto`. Na interface gráfica, Ctrl+F abre a busca e Ctrl+Q sai.
+Cada mensagem tem no máximo 500 caracteres e aparece como `[HH:mm] nome: texto`. Na interface gráfica, Ctrl+F abre a busca e Ctrl+Q sai. O botão de carinha, à esquerda da caixa de texto, abre o seletor de emojis; uma mensagem só de emojis (até 3) aparece grande, como figurinha. O servidor trata emoji como texto comum (cada um conta 2 caracteres no limite de 500).
 
 ## 5. Rodar os testes
 
@@ -167,6 +167,7 @@ São 1164 testes. Os 17 testes de janela são ignorados quando não há tela.
 - Exportação do histórico (`/exportar`) e log em arquivo, sem o conteúdo das mensagens privadas.
 - Administrador definido por configuração (`/exportar`, `/kick`, `/limpar` e banimento com `/ban`, `/unban` e `/bans` só para ele).
 - Interface gráfica em três colunas (salas e conversas, chat, membros), com avatares, mensagens em bloco e tema claro e escuro.
+- Emojis e figurinhas na interface gráfica (só no cliente, sem mudar o servidor).
 
 ### Rubrica (5,0 pontos)
 
@@ -399,7 +400,7 @@ Chat desconectado:
 
 ## Estado dos testes e limitações
 
-- 1164 testes. Sem tela, os 17 testes de janela são ignorados; com `xvfb-run -a mvn test` todos rodam.
+- 1182 testes. Sem tela, os 17 testes de janela são ignorados; com `xvfb-run -a mvn test` todos rodam.
 - Todos os testes passam. O teste da sala (`SalaServiceTest.falhaAoBuscarOHistoricoNaoMudaASalaNemAvisaNinguem`) usava um repositório falso que só falhava ao gravar, e o cenário pede falha ao ler. O defeito era do teste e foi corrigido com um repositório falso que falha na leitura.
 - A senha trafega em texto puro, porque não há TLS. O hash PBKDF2 protege só o que fica gravado no banco.
 - Quando se está lendo mensagens antigas, a janela não avisa que chegaram mensagens novas.

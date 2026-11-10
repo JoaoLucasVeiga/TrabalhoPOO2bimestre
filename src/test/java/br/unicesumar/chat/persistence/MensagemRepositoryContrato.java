@@ -72,6 +72,14 @@ public abstract class MensagemRepositoryContrato {
     }
 
     @Test
+    void emojisSaoGravadosELidosSemMudar() {
+        MensagemRepository repo = criarRepositorio();
+        String texto = "oi 😀 👍🏽 ❤️ 👨‍👩‍👧";
+        repo.salvar(publica("geral", texto));
+        assertEquals(List.of(texto), repo.buscarUltimas("geral", 5).stream().map(Mensagem::conteudo).toList());
+    }
+
+    @Test
     void buscarUltimasLimitaAQuantidadeMantendoAsMaisRecentes() {
         MensagemRepository repo = criarRepositorio();
         for (int i = 1; i <= 5; i++) {

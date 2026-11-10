@@ -30,6 +30,7 @@ public class LinhaMensagem extends JPanel {
     private static final int LARGURA_PADRAO = 480;
     private static final int TAMANHO_DO_AVATAR = 40;
     private static final long MINUTOS_PARA_AGRUPAR = 5;
+    private static final int AUMENTO_DA_FIGURINHA = 3;
 
     private final transient Tema tema;
     private final transient MensagemTela mensagem;
@@ -188,7 +189,9 @@ public class LinhaMensagem extends JPanel {
      * dos componentes, por isso isto precisa rodar a cada troca de tema.
      */
     public void aplicarTema() {
-        corpo.setFont(tema.fonteCorpo());
+        corpo.setFont(!aviso && Emojis.ehFigurinha(mensagem.texto())
+                ? new Font(Font.DIALOG, Font.PLAIN, tema.fonteCorpo().getSize() * AUMENTO_DA_FIGURINHA)
+                : tema.fonteCorpo());
         corpo.setMargin(new Insets(0, 0, 0, 0));
         corpo.setBorder(null);
         corpo.setForeground(corDoTexto());

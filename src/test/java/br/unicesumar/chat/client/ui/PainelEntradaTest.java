@@ -197,4 +197,36 @@ class PainelEntradaTest {
         assertEquals(escura.borda(), p.campo().getBackground());
         assertEquals(escura.destaque(), p.botaoEnviar().getBackground());
     }
+
+    @Test
+    void inserirEmojiVaiParaOCaretENaoEnviaSozinho() {
+        painel.campo().setText("oi ");
+        painel.campo().setCaretPosition(3);
+        painel.inserirEmoji("😀");
+        assertEquals("oi 😀", painel.campo().getText());
+        assertTrue(enviados.isEmpty());
+        assertTrue(painel.botaoEnviar().isEnabled());
+    }
+
+    @Test
+    void inserirEmojiNoMeioDoTexto() {
+        painel.campo().setText("ab");
+        painel.campo().setCaretPosition(1);
+        painel.inserirEmoji("🎉");
+        assertEquals("a🎉b", painel.campo().getText());
+    }
+
+    @Test
+    void inserirEmojiRespeitaOLimiteDe500Caracteres() {
+        painel.campo().setText("x".repeat(499));
+        painel.campo().setCaretPosition(499);
+        painel.inserirEmoji("😀"); // ocupa 2 chars e só cabe 1: não pode partir o emoji ao meio
+        assertEquals("x".repeat(499), painel.campo().getText());
+    }
+
+    @Test
+    void temBotaoDeEmojis() {
+        assertNotNull(painel.botaoEmojis());
+        assertEquals("Emojis", painel.botaoEmojis().getAccessibleContext().getAccessibleName());
+    }
 }

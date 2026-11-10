@@ -218,4 +218,27 @@ class LinhaMensagemBlocoTest {
         assertThrows(NullPointerException.class, () -> new LinhaMensagem(null, publica("bia", "oi")));
         assertThrows(NullPointerException.class, () -> new LinhaMensagem(tema, null));
     }
+
+    @Test
+    void figurinhaUsaFonteMaiorQueOTextoNormal() {
+        LinhaMensagem figurinha = new LinhaMensagem(tema, publica("ana", "😀"));
+        LinhaMensagem normal = new LinhaMensagem(tema, publica("ana", "oi"));
+        assertTrue(figurinha.fonteDoTexto().getSize() >= 2 * normal.fonteDoTexto().getSize());
+        assertTrue(figurinha.getPreferredSize().height > normal.getPreferredSize().height);
+    }
+
+    @Test
+    void textoMisturadoComEmojiNaoViraFigurinha() {
+        LinhaMensagem misturada = new LinhaMensagem(tema, publica("ana", "oi 😀"));
+        LinhaMensagem normal = new LinhaMensagem(tema, publica("ana", "oi"));
+        assertEquals(normal.fonteDoTexto().getSize(), misturada.fonteDoTexto().getSize());
+    }
+
+    @Test
+    void figurinhaContinuaGrandeDepoisDeTrocarOTema() {
+        LinhaMensagem figurinha = new LinhaMensagem(tema, publica("ana", "👍"));
+        int antes = figurinha.fonteDoTexto().getSize();
+        figurinha.aplicarTema();
+        assertEquals(antes, figurinha.fonteDoTexto().getSize());
+    }
 }
