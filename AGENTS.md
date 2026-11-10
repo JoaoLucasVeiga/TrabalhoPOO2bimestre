@@ -16,7 +16,7 @@ professor vence qualquer regra daqui em caso de conflito.
 | `persistence.jdbc` | JdbcMensagemRepository, JdbcUsuarioRepository, JdbcBanimentoRepository, ConnectionFactory |
 | `persistence.memory` | repositórios em memória (testes) |
 | `protocol` | Protocolo (codificar/decodificar eventos de texto) |
-| `server` | Servidor, ClienteHandler, ClientRegistry, ChatService, CommandService, SalaService, AuthService, Administradores, PreparoDeAdmin |
+| `server` | Servidor, ClienteHandler, ClientRegistry, ChatService, CommandService, SalaService, AuthService, Administradores, PreparoDeAdmin, SequenciadorDeMensagens (fila e gravação em lote), MonitorDeConexoes (PING), grupos de comandos `ComandosDe*` |
 | `infra` | ExportadorHistorico, LogArquivo, ConfiguracaoServidor (servidor.properties e variáveis de ambiente) |
 | `client.net` | ConexaoChat (interface), ConexaoSocket, ConexaoFalsa |
 | `client.controller` | ChatController, ChatView (interface) |
@@ -33,6 +33,8 @@ professor vence qualquer regra daqui em caso de conflito.
 - Sem God Classes: antes de criar uma classe, confirme que há responsabilidade nova.
 
 ## Concorrência
+- Mensagens públicas passam por `SequenciadorDeMensagens`: threads dos clientes enfileiram, uma thread consumidora grava em lote e transmite em ordem.
+- Nenhuma classe do pacote `server` passa de 300 linhas (testado em `TamanhoDasClassesTest`).
 - Todo estado compartilhado fica em `ClientRegistry` (coleção thread-safe, iteração protegida).
 - Escrita no `PrintWriter` de cada cliente protegida (`enviar()` synchronized ou fila por cliente).
 - Flags de parada compartilhadas são `volatile`.

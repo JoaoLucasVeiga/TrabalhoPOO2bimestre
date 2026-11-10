@@ -1,0 +1,30 @@
+classDiagram
+    direction TB
+    class Servidor
+    class ClienteHandler
+    class MonitorDeConexoes
+    class ClientRegistry
+    class ProcessadorChat
+    class CommandService
+    class ChatService
+    class SequenciadorDeMensagens
+    class MensagemRepository {
+        <<interface>>
+    }
+    class JdbcMensagemRepository
+    class MensagemRepositoryEmMemoria
+    class Mensagem
+    Servidor --> ClienteHandler : uma thread por conexão
+    Servidor --> MonitorDeConexoes : PING periódico
+    Servidor --> ClientRegistry
+    ClienteHandler --> ProcessadorChat : linhas recebidas
+    ProcessadorChat --> CommandService : comandos
+    ProcessadorChat --> ChatService : texto comum
+    CommandService --> ChatService
+    ChatService --> ClientRegistry
+    ChatService --> SequenciadorDeMensagens : fila
+    SequenciadorDeMensagens --> MensagemRepository
+    SequenciadorDeMensagens --> ClientRegistry : transmitir
+    MensagemRepository <|.. JdbcMensagemRepository
+    MensagemRepository <|.. MensagemRepositoryEmMemoria
+    MensagemRepository ..> Mensagem

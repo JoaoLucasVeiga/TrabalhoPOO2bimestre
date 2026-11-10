@@ -123,7 +123,7 @@ xvfb-run -a mvn test          # inclui os testes de janela (Linux sem tela)
 mvnw javadoc:javadoc          # Javadoc em target/site/apidocs
 ```
 
-São 1125 testes. Os 17 testes de janela são ignorados quando não há tela.
+São 1164 testes. Os 17 testes de janela são ignorados quando não há tela.
 
 ## 6. Problemas comuns
 
@@ -233,6 +233,67 @@ Estado compartilhado entre threads (marcado como COMPARTILHADO): `ClientRegistry
 
 Regras de dependência: `model` não conhece rede, banco nem tela. O socket não conhece SQL. O repositório não conhece socket. O `ChatService` depende da interface `MensagemRepository`, e a implementação JDBC é injetada em `ServidorMain`. O `ChatController` não importa `javax.swing` e nenhum cliente conhece repositório. Cada interface tem um adaptador real e um falso (memória e `ConexaoFalsa`).
 
+### Diagramas
+
+Classes principais do servidor e das camadas (o código-fonte dos diagramas está em `docs/diagramas`):
+
+```mermaid
+classDiagram
+    direction TB
+    class Servidor
+    class ClienteHandler
+    class MonitorDeConexoes
+    class ClientRegistry
+    class ProcessadorChat
+    class CommandService
+    class ChatService
+    class SequenciadorDeMensagens
+    class MensagemRepository {
+        <<interface>>
+    }
+    class JdbcMensagemRepository
+    class MensagemRepositoryEmMemoria
+    class Mensagem
+    Servidor --> ClienteHandler : uma thread por conexão
+    Servidor --> MonitorDeConexoes : PING periódico
+    Servidor --> ClientRegistry
+    ClienteHandler --> ProcessadorChat : linhas recebidas
+    ProcessadorChat --> CommandService : comandos
+    ProcessadorChat --> ChatService : texto comum
+    CommandService --> ChatService
+    ChatService --> ClientRegistry
+    ChatService --> SequenciadorDeMensagens : fila
+    SequenciadorDeMensagens --> MensagemRepository
+    SequenciadorDeMensagens --> ClientRegistry : transmitir
+    MensagemRepository <|.. JdbcMensagemRepository
+    MensagemRepository <|.. MensagemRepositoryEmMemoria
+    MensagemRepository ..> Mensagem
+```
+
+O caminho de uma mensagem, do socket do cliente até o banco e o broadcast:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Cliente
+    participant H as ClienteHandler
+    participant S as ChatService
+    participant Q as Sequenciador
+    participant R as Repositório JDBC
+    participant G as ClientRegistry
+    participant O as Outros clientes
+    C->>H: linha de texto (socket)
+    H->>S: enviarMensagem
+    S->>Q: publicar e esperar
+    Note over Q: lote com tudo da fila
+    Q->>R: salvarTodas (1 transação)
+    R-->>Q: mensagens com id
+    Q->>G: transmitir sob o lock de ordem
+    G->>O: enviar pela fila de cada cliente
+    Q-->>S: mensagem salva
+    S-->>H: pronto
+```
+
 ## Linguagem ubíqua
 
 | Termo | Classe |
@@ -264,7 +325,7 @@ A revisão foi feita em modo revisor, com arquivo e linha, e está completa em [
 | Cliente removido durante o broadcast | `enviar` devolve `false`, o cliente é removido e os outros não são afetados. |
 | Conexão aceita logo depois de `parar()` | `parar()` espera a thread de accept e descarta o socket tardio (corrigido). |
 | Dois logins com o mesmo nome ao mesmo tempo | `identificar` é atômico e o cadastro usa `UNIQUE` no banco. |
-| Gravar dentro do lock deixa o envio mais lento | Mantido: a ordem igual para todos é o requisito. |
+| Gravar no banco dentro do lock deixava o envio lento | Produtor-consumidor: as threads dos clientes só enfileiram, e uma única thread grava em lote (uma transação) e transmite em ordem. O teste de carga com 50 clientes ficou de 3 s para menos de 1 s. |
 | Duas exceções engolidas | Passaram a ir para o log (corrigido). |
 
 Os testes de concorrência usam 8 threads, `@RepeatedTest(10)` e `CountDownLatch`, sem `Thread.sleep`.
@@ -338,8 +399,8 @@ Chat desconectado:
 
 ## Estado dos testes e limitações
 
-- 1125 testes. Sem tela, os 17 testes de janela são ignorados; com `xvfb-run -a mvn test` todos rodam.
+- 1164 testes. Sem tela, os 17 testes de janela são ignorados; com `xvfb-run -a mvn test` todos rodam.
 - Todos os testes passam. O teste da sala (`SalaServiceTest.falhaAoBuscarOHistoricoNaoMudaASalaNemAvisaNinguem`) usava um repositório falso que só falhava ao gravar, e o cenário pede falha ao ler. O defeito era do teste e foi corrigido com um repositório falso que falha na leitura.
 - A senha trafega em texto puro, porque não há TLS. O hash PBKDF2 protege só o que fica gravado no banco.
 - Quando se está lendo mensagens antigas, a janela não avisa que chegaram mensagens novas.
-- Cliente que some sem aviso só é detectado pela fila de escrita ou pelo TCP (não há keep-alive).
+- Heartbeat: o servidor manda PING a cada 15 s e desconecta quem ficar 45 s sem responder. Os clientes do projeto respondem sozinhos; um cliente genérico (por exemplo, telnet) é desconectado depois de 45 s de silêncio.
