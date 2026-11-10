@@ -132,6 +132,21 @@ public class JanelaChat extends JFrame implements ChatView {
     }
 
     @Override
+    public void mostrarConversa(String com, List<MensagemTela> mensagens) {
+        painel.mostrarConversa(com, mensagens);
+    }
+
+    @Override
+    public void atualizarConversas(List<String> nomes) {
+        painel.atualizarConversas(nomes);
+    }
+
+    @Override
+    public void atualizarNaoLidas(java.util.Map<String, Integer> naoLidas) {
+        painel.atualizarNaoLidas(naoLidas);
+    }
+
+    @Override
     public void mostrarConexao(EstadoConexao estado) {
         painel.mostrarConexao(estado);
     }

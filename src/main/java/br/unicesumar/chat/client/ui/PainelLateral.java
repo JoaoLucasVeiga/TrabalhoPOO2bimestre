@@ -12,6 +12,7 @@ import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
 import javax.swing.AbstractAction;
@@ -45,6 +46,12 @@ public class PainelLateral extends JPanel {
     private final DefaultListModel<String> modeloDeUsuarios = new DefaultListModel<>();
     private final JList<String> listaDeSalas = new JList<>(modeloDeSalas);
     private final JList<String> listaDeUsuarios = new JList<>(modeloDeUsuarios);
+    private final DefaultListModel<String> modeloDeConversas = new DefaultListModel<>();
+    private final JList<String> listaDeConversas = new JList<>(modeloDeConversas);
+    private final JLabel tituloDeConversas = new JLabel("CONVERSAS");
+    private final JScrollPane rolagemDeConversas = new JScrollPane(listaDeConversas);
+    private Map<String, Integer> naoLidas = Map.of();
+    private String conversaAtual;
     private final JLabel tituloDeSalas = new JLabel("SALAS");
     private final JLabel tituloDeUsuarios = new JLabel("ONLINE (0)");
     private final JButton botaoNovaSala = new JButton("Nova sala");
@@ -110,6 +117,26 @@ public class PainelLateral extends JPanel {
         });
         associarEnter(listaDeUsuarios, () -> acionarUsuario(listaDeUsuarios.getSelectedIndex()));
 
+        listaDeConversas.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        listaDeConversas.setCellRenderer(new RenderizadorDeConversas());
+        listaDeConversas.setToolTipText("Suas conversas privadas. Clique para abrir; o número é de mensagens não lidas.");
+        listaDeConversas.getAccessibleContext().setAccessibleName("Lista de conversas privadas");
+        listaDeConversas.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                int indice = indiceNoPonto(listaDeConversas, e);
+                if (indice >= 0) {
+                    acionarConversa(indice);
+                }
+            }
+        });
+        associarEnter(listaDeConversas, () -> acionarConversa(listaDeConversas.getSelectedIndex()));
+        tituloDeConversas.setAlignmentX(Component.LEFT_ALIGNMENT);
+        rolagemDeConversas.setAlignmentX(Component.LEFT_ALIGNMENT);
+        rolagemDeConversas.setBorder(null);
+        rolagemDeConversas.setPreferredSize(new Dimension(LARGURA, Tema.espaco(14)));
+        rolagemDeConversas.setMaximumSize(new Dimension(Integer.MAX_VALUE, Tema.espaco(14)));
+
         botaoNovaSala.setToolTipText("Criar uma sala nova e entrar nela");
         botaoNovaSala.getAccessibleContext().setAccessibleName("Nova sala");
         botaoNovaSala.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -129,6 +156,9 @@ public class PainelLateral extends JPanel {
         conteudo.add(javax.swing.Box.createVerticalStrut(Tema.espaco(2)));
         conteudo.add(tituloDeUsuarios);
         conteudo.add(rolagemDeUsuarios);
+        conteudo.add(javax.swing.Box.createVerticalStrut(Tema.espaco(2)));
+        conteudo.add(tituloDeConversas);
+        conteudo.add(rolagemDeConversas);
         add(conteudo, BorderLayout.CENTER);
     }
 
@@ -158,11 +188,12 @@ public class PainelLateral extends JPanel {
         setBackground(p.superficie());
         rolagemDeSalas.setBorder(null); // o FlatLaf reinstala a borda padrão ao trocar de visual
         rolagemDeUsuarios.setBorder(null);
-        for (JLabel titulo : List.of(tituloDeSalas, tituloDeUsuarios)) {
+        rolagemDeConversas.setBorder(null);
+        for (JLabel titulo : List.of(tituloDeSalas, tituloDeUsuarios, tituloDeConversas)) {
             titulo.setFont(tema.fontePequena().deriveFont(Font.BOLD));
             titulo.setForeground(p.textoSecundario());
         }
-        for (JList<String> lista : List.of(listaDeSalas, listaDeUsuarios)) {
+        for (JList<String> lista : List.of(listaDeSalas, listaDeUsuarios, listaDeConversas)) {
             lista.setFont(tema.fonteCorpo());
             lista.setBackground(p.superficie());
             lista.setForeground(p.texto());
@@ -204,7 +235,7 @@ public class PainelLateral extends JPanel {
             return;
         }
         String sala = modeloDeSalas.get(indice);
-        if (!sala.equals(salaAtual)) {
+        if (!sala.equals(salaAtual) || conversaAtual != null) { // dentro de uma conversa, a sala atual é o "voltar"
             aoEntrarNaSala.accept(sala);
         }
     }
@@ -218,6 +249,95 @@ public class PainelLateral extends JPanel {
         if (!nome.equalsIgnoreCase(eu)) {
             aoAbrirPrivada.accept(nome);
         }
+    }
+
+    /** Atualiza as conversas privadas (a conversa aberta, se houver, continua na lista). */
+    public void atualizarConversas(List<String> nomes) {
+        Objects.requireNonNull(nomes, "nomes");
+        modeloDeConversas.clear();
+        nomes.forEach(modeloDeConversas::addElement);
+        garantirConversaAberta();
+        listaDeConversas.repaint();
+    }
+
+    /** Atualiza as mensagens não lidas de cada conversa (nome do interlocutor para a quantidade). */
+    public void atualizarNaoLidas(Map<String, Integer> naoLidas) {
+        this.naoLidas = Map.copyOf(Objects.requireNonNull(naoLidas, "naoLidas"));
+        listaDeConversas.repaint();
+    }
+
+    /** Marca a conversa aberta (ou {@code null} quando se volta para a sala). */
+    public void selecionarConversa(String nome) {
+        conversaAtual = nome;
+        garantirConversaAberta();
+        if (nome == null) {
+            listaDeConversas.clearSelection();
+        } else {
+            listaDeConversas.setSelectedValue(nome, true);
+        }
+        listaDeSalas.repaint();
+        listaDeConversas.repaint();
+    }
+
+    private void garantirConversaAberta() {
+        String atual = conversaAtual;
+        if (atual != null && !java.util.Collections.list(modeloDeConversas.elements()).contains(atual)) {
+            modeloDeConversas.addElement(atual);
+        }
+    }
+
+    /** Clique em uma conversa: abre ela. */
+    public void acionarConversa(int indice) {
+        if (indice < 0 || indice >= modeloDeConversas.size()) {
+            return;
+        }
+        aoAbrirPrivada.accept(modeloDeConversas.get(indice));
+    }
+
+    /** Nomes das conversas, na ordem exibida. */
+    public List<String> conversas() {
+        return java.util.Collections.list(modeloDeConversas.elements());
+    }
+
+    /** Interlocutor da conversa aberta, ou {@code null}. */
+    public String conversaAtual() {
+        return conversaAtual;
+    }
+
+    /** Texto mostrado para a conversa do índice: o nome, e a quantidade de não lidas entre parênteses. */
+    public String rotuloDaConversa(int indice) {
+        String nome = modeloDeConversas.get(indice);
+        int n = naoLidasDe(nome);
+        return n > 0 ? nome + " (" + n + ")" : nome;
+    }
+
+    /** Soma das mensagens não lidas de todas as conversas. */
+    public int totalDeNaoLidas() {
+        return naoLidas.values().stream().mapToInt(Integer::intValue).sum();
+    }
+
+    private int naoLidasDe(String nome) {
+        Integer exato = naoLidas.get(nome);
+        if (exato != null) {
+            return exato;
+        }
+        return naoLidas.entrySet().stream().filter(e -> e.getKey().equalsIgnoreCase(nome))
+                .mapToInt(Map.Entry::getValue).findFirst().orElse(0);
+    }
+
+    /** Título "CONVERSAS". */
+    public String tituloDasConversas() {
+        return tituloDeConversas.getText();
+    }
+
+    /** A lista de conversas. */
+    public JList<String> listaDeConversas() {
+        return listaDeConversas;
+    }
+
+    /** Rolagem da lista de conversas. */
+    public JScrollPane rolagemDeConversas() {
+        return rolagemDeConversas;
     }
 
     /** Nomes das salas listadas. */
@@ -278,7 +398,7 @@ public class PainelLateral extends JPanel {
         public Component getListCellRendererComponent(JList<?> lista, Object valor, int indice,
                 boolean selecionada, boolean foco) {
             JLabel l = (JLabel) super.getListCellRendererComponent(lista, valor, indice, selecionada, foco);
-            boolean atual = String.valueOf(valor).equals(salaAtual);
+            boolean atual = conversaAtual == null && String.valueOf(valor).equals(salaAtual);
             l.setText("# " + valor);
             l.setFont(atual ? tema.fonteCorpo().deriveFont(Font.BOLD) : tema.fonteCorpo());
             if (!selecionada) {
@@ -302,6 +422,27 @@ public class PainelLateral extends JPanel {
             l.setFont(proprio ? tema.fonteCorpo().deriveFont(Font.BOLD) : tema.fonteCorpo());
             if (!selecionada) {
                 l.setForeground(proprio ? tema.paleta().textoDestaque() : tema.paleta().texto());
+                l.setBackground(tema.paleta().superficie());
+            }
+            l.setBorder(BorderFactory.createEmptyBorder(Tema.espaco(1) / 2, Tema.espaco(1), Tema.espaco(1) / 2, Tema.espaco(1)));
+            return l;
+        }
+    }
+
+    private final class RenderizadorDeConversas extends DefaultListCellRenderer {
+        private static final long serialVersionUID = 1L;
+
+        @Override
+        public Component getListCellRendererComponent(JList<?> lista, Object valor, int indice,
+                boolean selecionada, boolean foco) {
+            JLabel l = (JLabel) super.getListCellRendererComponent(lista, valor, indice, selecionada, foco);
+            String nome = String.valueOf(valor);
+            boolean aberta = conversaAtual != null && conversaAtual.equalsIgnoreCase(nome);
+            boolean comNaoLidas = naoLidasDe(nome) > 0;
+            l.setText("@ " + nome + (comNaoLidas ? " (" + naoLidasDe(nome) + ")" : ""));
+            l.setFont(aberta || comNaoLidas ? tema.fonteCorpo().deriveFont(Font.BOLD) : tema.fonteCorpo());
+            if (!selecionada) {
+                l.setForeground(aberta || comNaoLidas ? tema.paleta().textoDestaque() : tema.paleta().texto());
                 l.setBackground(tema.paleta().superficie());
             }
             l.setBorder(BorderFactory.createEmptyBorder(Tema.espaco(1) / 2, Tema.espaco(1), Tema.espaco(1) / 2, Tema.espaco(1)));

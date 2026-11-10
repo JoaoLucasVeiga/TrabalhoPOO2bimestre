@@ -151,8 +151,8 @@ class PainelChatTest {
         painel.aoMensagemDeOutro(naoLidas::incrementAndGet);
         entrar(new Evento.Msg("geral", "bia", T, "uma"), new Evento.Msg("geral", "ana", T, "minha"),
                 new Evento.Sistema("bia saiu da sala geral."), new Evento.Privada("caio", "ana", T, "psiu"));
-        esperar(() -> painel.mensagens().quantidade() == 5);
-        assertEquals(2, naoLidas.get()); // a de bia e a privada de caio
+        esperar(() -> painel.mensagens().quantidade() == 4);
+        assertEquals(2, naoLidas.get()); // a de bia e a privada de caio (que agora vira conversa não lida)
     }
 
     @Test
@@ -251,12 +251,12 @@ class PainelChatTest {
     }
 
     @Test
-    void duploCliqueEmUsuarioPreencheOCampoComMsgEFocaNoFim() throws Exception {
+    void duploCliqueEmUsuarioAbreAConversaPrivadaComEle() throws Exception {
         entrar(new Evento.Usuarios("geral", List.of("ana", "bia")));
         esperar(() -> painel.lateral().usuarios().size() == 2);
         painel.lateral().acionarUsuario(1);
-        assertEquals("/msg bia ", painel.entrada().campo().getText());
-        assertEquals("/msg bia ".length(), painel.entrada().campo().getCaretPosition());
+        esperar(() -> painel.titulo().getText().equals("@ bia"));
+        assertTrue(conexao.enviadas().contains("/conversa bia 50"));
     }
 
     @Test
@@ -429,7 +429,7 @@ class PainelChatTest {
         entrar(new Evento.Usuarios("geral", List.of("ana", "bia")), new Evento.Salas(List.of("geral")),
                 new Evento.Msg("geral", "bia", T, "uma"), new Evento.Privada("bia", "ana", T, "psiu"),
                 new Evento.Sistema("bia saiu da sala geral."), new Evento.Erro("algo"));
-        esperar(() -> painel.mensagens().quantidade() >= 4 && painel.faixaDeAviso().isVisible());
+        esperar(() -> painel.mensagens().quantidade() >= 3 && painel.faixaDeAviso().isVisible());
         SwingUtilities.invokeAndWait(() -> {
             painel.entrada().campo().setText("resposta");
             painel.entrada().acionarEnvio();
@@ -456,5 +456,70 @@ class PainelChatTest {
         assertFalse(painel.botaoExportar().isVisible());
         assertTrue(painel.botaoHistorico().isVisible());
         assertTrue(painel.botaoBuscar().isVisible());
+    }
+
+    // ---------- conversas privadas ----------
+
+    private void abrirConversaCom(String nome) throws Exception {
+        entrar(new Evento.Usuarios("geral", List.of("ana", nome)));
+        esperar(() -> painel.lateral().usuarios().size() == 2);
+        painel.lateral().acionarUsuario(1);
+        esperar(() -> painel.titulo().getText().equals("@ " + nome));
+    }
+
+    @Test
+    void depoisDoLoginPedeAsConversasEMostraNaLateral() throws Exception {
+        entrar(new Evento.Conversas(List.of("bia", "caio")));
+        assertTrue(conexao.enviadas().contains("/conversas"));
+        esperar(() -> painel.lateral().conversas().size() == 2);
+        assertEquals(List.of("bia", "caio"), painel.lateral().conversas());
+    }
+
+    @Test
+    void abrirConversaTrocaOTituloPedeOHistoricoEDesligaOQueEDaSala() throws Exception {
+        abrirConversaCom("bia");
+        assertTrue(conexao.enviadas().contains("/conversa bia 50"));
+        assertFalse(painel.botaoHistorico().isEnabled());
+        assertFalse(painel.botaoExportar().isEnabled());
+        assertTrue(painel.botaoBuscar().isEnabled());
+        assertEquals("bia", painel.lateral().conversaAtual());
+    }
+
+    @Test
+    void historicoDaConversaSubstituiAsMensagensDaSala() throws Exception {
+        abrirConversaCom("bia");
+        conexao.receberEvento(new Evento.Conversa("bia", List.of(
+                new Evento.Privada("ana", "bia", T, "oi bia"), new Evento.Privada("bia", "ana", T, "oi ana"))));
+        esperar(() -> painel.mensagens().quantidade() == 2);
+        assertEquals("oi bia", painel.mensagens().linha(0).mensagem().texto());
+    }
+
+    @Test
+    void textoDigitadoNaConversaVaiComoMsgParaOInterlocutor() throws Exception {
+        abrirConversaCom("bia");
+        painel.entrada().campo().setText("tudo bem?");
+        painel.entrada().botaoEnviar().doClick();
+        esperar(() -> conexao.enviadas().contains("/msg bia tudo bem?"));
+    }
+
+    @Test
+    void privadaDeOutraPessoaNaoApareceNaSalaMasViraNaoLidaNaLateral() throws Exception {
+        entrar();
+        conexao.receberEvento(new Evento.Privada("bia", "ana", T, "psiu"));
+        esperar(() -> painel.lateral().totalDeNaoLidas() == 1);
+        assertEquals(List.of("bia"), painel.lateral().conversas());
+        assertEquals("bia (1)", painel.lateral().rotuloDaConversa(0));
+        assertEquals(1, painel.mensagens().quantidade()); // só o histórico da sala
+    }
+
+    @Test
+    void clicarNaSalaDepoisDaConversaVoltaAsMensagensDaSalaEReligaOsBotoes() throws Exception {
+        abrirConversaCom("bia");
+        painel.lateral().atualizarSalas(List.of("geral"), "geral");
+        painel.lateral().acionarSala(0);
+        esperar(() -> painel.titulo().getText().equals("# geral"));
+        assertEquals("oi, ana", painel.mensagens().linha(0).mensagem().texto());
+        assertTrue(painel.botaoHistorico().isEnabled());
+        assertNull(painel.lateral().conversaAtual());
     }
 }
