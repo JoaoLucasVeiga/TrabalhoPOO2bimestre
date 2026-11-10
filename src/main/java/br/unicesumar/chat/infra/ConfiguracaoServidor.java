@@ -22,6 +22,9 @@ public final class ConfiguracaoServidor {
     /** Variável de ambiente com a senha do administrador. */
     public static final String AMBIENTE_SENHA = "CHAT_ADMIN_SENHA";
 
+    /** Variável de ambiente com a senha do keystore TLS. */
+    public static final String AMBIENTE_SENHA_TLS = "CHAT_TLS_SENHA";
+
     private static final String CHAVE_USUARIO = "admin.usuario";
     private static final String CHAVE_SENHA = "admin.senha";
 
@@ -44,10 +47,26 @@ public final class ConfiguracaoServidor {
         }
     }
 
-    private final Optional<CredencialAdmin> admin;
+    /**
+     * Configuração do TLS opcional.
+     *
+     * @param keystore    arquivo {@code .p12} com a chave do servidor
+     * @param certificado arquivo {@code .crt} com o certificado público (o cliente confia nele)
+     * @param senha       senha do keystore, se informada (nunca aparece em {@code toString})
+     */
+    public record ConfiguracaoTls(Path keystore, Path certificado, Optional<String> senha) {
+        @Override
+        public String toString() {
+            return "ConfiguracaoTls[keystore=" + keystore + ", certificado=" + certificado + ", senha=***]";
+        }
+    }
 
-    private ConfiguracaoServidor(Optional<CredencialAdmin> admin) {
+    private final Optional<CredencialAdmin> admin;
+    private final ConfiguracaoTls tls;
+
+    private ConfiguracaoServidor(Optional<CredencialAdmin> admin, ConfiguracaoTls tls) {
         this.admin = admin;
+        this.tls = tls;
     }
 
     /**
@@ -72,8 +91,14 @@ public final class ConfiguracaoServidor {
         }
         String usuario = valor(ambiente.get(AMBIENTE_USUARIO), propriedades.getProperty(CHAVE_USUARIO));
         String senha = valor(ambiente.get(AMBIENTE_SENHA), propriedades.getProperty(CHAVE_SENHA));
+        ConfiguracaoTls tls = new ConfiguracaoTls(
+                Path.of(Objects.requireNonNullElse(valor(null, propriedades.getProperty("tls.keystore")),
+                        "chat-tls.p12")),
+                Path.of(Objects.requireNonNullElse(valor(null, propriedades.getProperty("tls.certificado")),
+                        "chat-tls.crt")),
+                Optional.ofNullable(valor(ambiente.get(AMBIENTE_SENHA_TLS), propriedades.getProperty("tls.senha"))));
         if (usuario == null && senha == null) {
-            return new ConfiguracaoServidor(Optional.empty());
+            return new ConfiguracaoServidor(Optional.empty(), tls);
         }
         if (senha == null) {
             throw new IllegalArgumentException("Falta a senha do administrador. Defina " + CHAVE_SENHA
@@ -83,7 +108,12 @@ public final class ConfiguracaoServidor {
             throw new IllegalArgumentException("Falta o usuário do administrador. Defina " + CHAVE_USUARIO
                     + " no servidor.properties ou a variável " + AMBIENTE_USUARIO + ".");
         }
-        return new ConfiguracaoServidor(Optional.of(new CredencialAdmin(usuario, senha)));
+        return new ConfiguracaoServidor(Optional.of(new CredencialAdmin(usuario, senha)), tls);
+    }
+
+    /** Configuração do TLS (usada só quando o servidor sobe com {@code --tls}). */
+    public ConfiguracaoTls tls() {
+        return tls;
     }
 
     /** Conta do administrador, se estiver configurada. */

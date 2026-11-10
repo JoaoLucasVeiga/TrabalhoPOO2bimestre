@@ -2,6 +2,7 @@ package br.unicesumar.chat.server;
 
 import java.io.IOException;
 import java.net.ServerSocket;
+import javax.net.ServerSocketFactory;
 import java.net.Socket;
 import java.net.SocketException;
 import java.time.Duration;
@@ -37,6 +38,7 @@ public class Servidor {
     private final Duration tempoLimiteSemLer;
     private final MonitorDeConexoes monitor;
     private volatile boolean parado;
+    private volatile ServerSocketFactory fabricaDeSockets = ServerSocketFactory.getDefault();
     private volatile Thread threadDeAccept;
 
     /** Cria o servidor com um registro de clientes próprio. Veja o outro construtor. */
@@ -111,6 +113,17 @@ public class Servidor {
     }
 
     /**
+     * Faz o servidor aceitar conexões com TLS (passe a fábrica de um {@code SSLContext}). Deve ser chamado
+     * antes de {@link #iniciar()}; sem isso o servidor usa TCP puro.
+     *
+     * @return este servidor
+     */
+    public Servidor comTls(ServerSocketFactory fabrica) {
+        this.fabricaDeSockets = java.util.Objects.requireNonNull(fabrica, "fabrica");
+        return this;
+    }
+
+    /**
      * Abre a porta e começa a aceitar conexões em uma thread própria. Retorna
      * assim que a porta está aberta.
      *
@@ -122,7 +135,7 @@ public class Servidor {
             throw new IllegalStateException("O servidor já foi iniciado.");
         }
         try {
-            socketDeEscuta = new ServerSocket(porta);
+            socketDeEscuta = fabricaDeSockets.createServerSocket(porta);
         } catch (IOException e) {
             throw new IOException("Não foi possível abrir a porta " + porta
                     + ". Verifique se ela já está em uso e tente outra porta.", e);

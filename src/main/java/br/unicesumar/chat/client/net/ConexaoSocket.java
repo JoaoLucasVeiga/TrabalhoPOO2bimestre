@@ -9,6 +9,8 @@ import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import javax.net.SocketFactory;
+import javax.net.ssl.SSLSocket;
 import java.nio.charset.StandardCharsets;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -21,6 +23,7 @@ public class ConexaoSocket implements ConexaoChat {
 
     private final String host;
     private final int porta;
+    private final SocketFactory fabrica;
     private volatile Socket socket;
     private volatile BufferedReader entrada;
     private volatile PrintWriter saida;
@@ -30,19 +33,35 @@ public class ConexaoSocket implements ConexaoChat {
 
     /** Cria a conexão (ainda fechada) para o servidor indicado. */
     public ConexaoSocket(String host, int porta) {
+        this(host, porta, SocketFactory.getDefault());
+    }
+
+    /** Cria a conexão usando a fábrica de sockets dada (por exemplo, a de um contexto TLS). */
+    public ConexaoSocket(String host, int porta, SocketFactory fabrica) {
         this.host = host;
         this.porta = porta;
+        this.fabrica = java.util.Objects.requireNonNull(fabrica, "fabrica");
     }
 
     @Override
     public void abrir() throws IOException {
-        Socket novo = new Socket();
+        Socket novo = fabrica.createSocket();
         try {
             novo.connect(new InetSocketAddress(host, porta), TEMPO_PARA_CONECTAR_MS);
         } catch (IOException e) {
             novo.close();
             throw new IOException("Não foi possível conectar a " + host + ":" + porta
                     + ". Verifique se o servidor está em execução.", e);
+        }
+        if (novo instanceof SSLSocket tls) {
+            try {
+                novo.setSoTimeout(TEMPO_PARA_CONECTAR_MS);
+                tls.startHandshake();
+            } catch (IOException e) {
+                novo.close();
+                throw new IOException("Falha no TLS com " + host + ":" + porta + ". Confira se o servidor foi "
+                        + "iniciado com --tls e se o certificado (.crt) é o do servidor.", e);
+            }
         }
         novo.setSoTimeout(tempoDeEspera);
         socket = novo;

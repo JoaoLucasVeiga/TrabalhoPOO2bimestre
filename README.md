@@ -2,7 +2,7 @@
 
 Projeto da disciplina de Programação Orientada a Objetos. É um chat cliente-servidor em Java 21: o servidor atende vários clientes ao mesmo tempo (uma thread por conexão), distribui as mensagens a todos e guarda o histórico em SQLite por JDBC. Há um cliente gráfico (Swing com FlatLaf) e um cliente de terminal.
 
-Vídeo de demonstração: [docs/video/demonstracao.mp4](docs/video/demonstracao.mp4) (2 min, sem áudio: 3 clientes, chat privado, administrador e banimento, persistência).
+Vídeo de demonstração: [docs/video/demonstracao.mp4](docs/video/demonstracao.mp4) (cerca de 1 min 50 s, sem áudio: 3 clientes com TLS, broadcast, emojis, chat privado, heartbeat, carga em lote e persistência; não mostra administrador nem banimento).
 
 ## Sumário
 
@@ -88,6 +88,22 @@ O administrador é uma conta definida **na configuração do servidor, fora do c
 
 O `servidor.properties` está no `.gitignore` e não vai para o GitHub. Em vez do arquivo, dá para usar as variáveis de ambiente `CHAT_ADMIN_USUARIO` e `CHAT_ADMIN_SENHA`, que têm prioridade. O administrador não lê mensagens privadas. `/kick` só desconecta: a pessoa pode entrar de novo. Para impedir, use `/ban`, que vale também depois de reiniciar o servidor (fica no banco) e vale até para um nome que ainda não tem conta. Depois de `/limpar`, as telas que já estavam abertas mostram um aviso, mas só perdem as mensagens antigas ao reentrar na sala.
 
+### TLS (opcional)
+
+Por padrão a conexão é TCP puro, e a senha viaja sem criptografia. Para criptografar, o servidor sobe com `--tls`. Os atalhos de dois cliques não mudam.
+
+1. No `servidor.properties` (ou na variável `CHAT_TLS_SENHA`), defina `tls.senha` com 6 a 128 caracteres. Ela protege o arquivo da chave.
+2. Inicie o servidor com `--tls`. Na primeira vez ele cria, com o `keytool` do Java, o keystore `chat-tls.p12` (chave privada, não sai da máquina do servidor) e o certificado público `chat-tls.crt`.
+3. Copie o `chat-tls.crt` para a pasta de cada cliente e inicie o cliente com `--tls`.
+
+```
+java -cp target/chat-multiusuario-1.0.0.jar br.unicesumar.chat.ServidorMain 5000 --tls
+java -cp target/chat-multiusuario-1.0.0.jar br.unicesumar.chat.ClienteGuiMain --tls
+java -cp target/chat-multiusuario-1.0.0.jar br.unicesumar.chat.ClienteTerminalMain servidor 5000 --tls=caminho/chat-tls.crt
+```
+
+O cliente confia somente nesse certificado (certificado fixado), então não precisa de autoridade certificadora e não aceita um servidor falso. Cliente sem `--tls` não consegue falar com servidor com `--tls`, e o contrário também. O certificado vale 825 dias; para trocá-lo, apague o `chat-tls.p12` e o `chat-tls.crt` e distribua o novo `.crt`.
+
 ## 4. Usar o chat e comandos
 
 No cliente gráfico, digite na caixa de baixo e pressione Enter. Duplo clique em um usuário da coluna da direita, ou clique em uma conversa da lista, abre a conversa privada com ele; clicar na sala volta ao chat da sala. Os comandos abaixo também valem na interface gráfica e no terminal.
@@ -113,7 +129,7 @@ No cliente gráfico, digite na caixa de baixo e pressione Enter. Duplo clique em
 | `/register nome senha`, `/login nome senha` | Criar conta ou entrar (no terminal) |
 | `/quit` | Sai do chat |
 
-Cada mensagem tem no máximo 500 caracteres e aparece como `[HH:mm] nome: texto`. Na interface gráfica, Ctrl+F abre a busca e Ctrl+Q sai.
+Cada mensagem tem no máximo 500 caracteres e aparece como `[HH:mm] nome: texto`. Na interface gráfica, Ctrl+F abre a busca e Ctrl+Q sai. O botão de carinha, à esquerda da caixa de texto, abre o seletor de emojis; uma mensagem só de emojis (até 3) aparece grande, como figurinha. O servidor trata emoji como texto comum (cada um conta 2 caracteres no limite de 500).
 
 ## 5. Rodar os testes
 
@@ -167,6 +183,8 @@ São 1164 testes. Os 17 testes de janela são ignorados quando não há tela.
 - Exportação do histórico (`/exportar`) e log em arquivo, sem o conteúdo das mensagens privadas.
 - Administrador definido por configuração (`/exportar`, `/kick`, `/limpar` e banimento com `/ban`, `/unban` e `/bans` só para ele).
 - Interface gráfica em três colunas (salas e conversas, chat, membros), com avatares, mensagens em bloco e tema claro e escuro.
+- Emojis e figurinhas na interface gráfica (só no cliente, sem mudar o servidor).
+- TLS opcional com certificado autoassinado fixado no cliente (`--tls`).
 
 ### Rubrica (5,0 pontos)
 
@@ -399,8 +417,8 @@ Chat desconectado:
 
 ## Estado dos testes e limitações
 
-- 1164 testes. Sem tela, os 17 testes de janela são ignorados; com `xvfb-run -a mvn test` todos rodam.
+- 1204 testes. Sem tela, os 17 testes de janela são ignorados; com `xvfb-run -a mvn test` todos rodam.
 - Todos os testes passam. O teste da sala (`SalaServiceTest.falhaAoBuscarOHistoricoNaoMudaASalaNemAvisaNinguem`) usava um repositório falso que só falhava ao gravar, e o cenário pede falha ao ler. O defeito era do teste e foi corrigido com um repositório falso que falha na leitura.
-- A senha trafega em texto puro, porque não há TLS. O hash PBKDF2 protege só o que fica gravado no banco.
+- Por padrão a senha trafega em texto puro. Com `--tls` (veja a seção TLS) a conexão é criptografada. O hash PBKDF2 protege o que fica gravado no banco.
 - Quando se está lendo mensagens antigas, a janela não avisa que chegaram mensagens novas.
 - Heartbeat: o servidor manda PING a cada 15 s e desconecta quem ficar 45 s sem responder. Os clientes do projeto respondem sozinhos; um cliente genérico (por exemplo, telnet) é desconectado depois de 45 s de silêncio.

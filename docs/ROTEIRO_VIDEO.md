@@ -1,4 +1,28 @@
-# Roteiro do vídeo (até 3 minutos)
+# Vídeo de demonstração
+
+O arquivo `docs/video/demonstracao.mp4` (cerca de 1 min 50 s, sem áudio) foi gravado automaticamente por `src/test/java/br/unicesumar/chat/demo/Gravacao.java`, com servidor real (SQLite e TLS), três clientes gráficos reais (Ana, Bruno e Carla), uma janela com o log do servidor e uma barra de legenda. Para regravar, na raiz do projeto, com Java 21, `ffmpeg` e `xvfb-run`:
+
+```bash
+xvfb-run -a -s "-screen 0 2160x1250x24" bash docs/video/gravar.sh
+```
+
+No vídeo, o PING do heartbeat é a cada 2 s e o limite é de 6 s (no uso normal são 15 s e 45 s), só para caber no tempo.
+
+| Ordem | Cena |
+|---|---|
+| 1 | Apresentação e servidor no ar com TLS |
+| 2 | Três clientes criam conta e entram |
+| 3 | Broadcast: os três enviam ao mesmo tempo e veem a mesma ordem |
+| 4 | Emojis e figurinhas |
+| 5 | Conversa privada (a Carla não recebe) |
+| 6 | Cliente cai de repente; os outros recebem o aviso |
+| 7 | Heartbeat: cliente "zumbi" é removido |
+| 8 | Carga: 50 clientes por socket, 20 mensagens cada, gravadas em lote |
+| 9 | Servidor reiniciado; o histórico continua |
+
+# Roteiro para gravar manualmente
+
+(Até 3 minutos.)
 
 Preparação: apagar `chat.db`, abrir três terminais para os clientes (Ana, Bruno e Carla), um terminal para o servidor e uma janela com `mvn test` já executado. Falar devagar e mostrar a tela.
 
