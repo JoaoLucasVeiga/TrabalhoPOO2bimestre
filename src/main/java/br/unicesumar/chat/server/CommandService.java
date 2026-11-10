@@ -1,30 +1,17 @@
 package br.unicesumar.chat.server;
 
 import br.unicesumar.chat.infra.ExportadorHistorico;
-import br.unicesumar.chat.model.Mensagem;
-import br.unicesumar.chat.model.Usuario;
 import br.unicesumar.chat.protocol.Evento;
-import br.unicesumar.chat.protocol.Mensagens;
-import java.io.IOException;
-import java.nio.file.Path;
-import java.time.LocalDate;
-import java.time.format.DateTimeParseException;
-import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import java.util.regex.Pattern;
 
 /**
- * Identifica o comando digitado (linhas que começam com {@code /}) e o entrega
- * ao serviço responsável. Não há sequência de if/else: os comandos ficam numa
- * tabela montada no construtor e nunca mais alterada, por isso a leitura por
- * várias threads é segura. Não guarda estado de conexão.
+ * Identifica o comando digitado (linhas que começam com {@code /}) e o entrega ao grupo de comandos
+ * responsável. Não há sequência de if/else: os comandos ficam numa {@link TabelaDeComandos} montada no
+ * construtor e nunca mais alterada, por isso a leitura por várias threads é segura. Cada assunto tem a
+ * sua classe ({@link ComandosDeConta}, {@link ComandosDeSala}, {@link ComandosDeConsulta},
+ * {@link ComandosDeConversa}, {@link ComandosDeAdministracao}). Não guarda estado de conexão.
  */
 public class CommandService {
 
@@ -34,24 +21,11 @@ public class CommandService {
     /** Máximo de mensagens gravadas por {@code /exportar} (as mais recentes). */
     public static final int EXPORTACAO_MAXIMA = 1000;
 
-    private static final Logger LOG = Logger.getLogger(CommandService.class.getName());
-
     /** Comandos permitidos a quem ainda não entrou (só no modo com autenticação). */
     private static final Set<String> SEM_LOGIN = Set.of("help", "quit", "register", "login");
 
-    private static final int CONVERSA_PADRAO = 50;
-    private static final Pattern QUANTIDADE = Pattern.compile("\\d{1,4}");
-
-    private record Registro(String uso, String descricao, Comando comando) {
-    }
-
-    private final ChatService chat;
-    private final ClientRegistry registry;
-    private final SalaService salas;
     private final AuthService auth;
-    private final ExportadorHistorico exportador;
-    private final Administradores administradores;
-    private final Map<String, Registro> comandos = new LinkedHashMap<>();
+    private final TabelaDeComandos tabela = new TabelaDeComandos();
 
     /** Cria o serviço sem autenticação e com o {@link SalaService} padrão. */
     public CommandService(ChatService chat, ClientRegistry registry) {
@@ -94,64 +68,27 @@ public class CommandService {
      * {@code /kick} e {@code /limpar} só funcionam para administradores; sem restrição, os comandos
      * se comportam como antes (todos podem exportar e {@code /kick} e {@code /limpar} não existem).
      *
-     * @param auth           serviço de autenticação, ou {@code null} para o modo sem login
-     * @param exportador     grava o {@code /exportar}, ou {@code null} para não oferecer o comando
+     * @param auth            serviço de autenticação, ou {@code null} para o modo sem login
+     * @param exportador      grava o {@code /exportar}, ou {@code null} para não oferecer o comando
      * @param administradores quem pode usar os comandos de administração
      */
     public CommandService(ChatService chat, ClientRegistry registry, SalaService salas,
             AuthService auth, ExportadorHistorico exportador, Administradores administradores) {
-        this.administradores = Objects.requireNonNull(administradores, "administradores");
-        this.chat = Objects.requireNonNull(chat, "chat");
-        this.registry = Objects.requireNonNull(registry, "registry");
-        this.salas = Objects.requireNonNull(salas, "salas");
+        Objects.requireNonNull(chat, "chat");
+        Objects.requireNonNull(registry, "registry");
+        Objects.requireNonNull(salas, "salas");
+        Objects.requireNonNull(administradores, "administradores");
         this.auth = auth;
-        this.exportador = exportador;
+        ComandosBasicos basicos = new ComandosBasicos(tabela);
         if (auth != null) {
-            registrar("register", "/register nome senha", "Cria uma conta e entra no chat.",
-                    this::criarConta);
-            registrar("login", "/login nome senha", "Entra no chat com uma conta existente.",
-                    this::entrarComConta);
+            new ComandosDeConta(chat, registry, auth, administradores).registrarEm(tabela);
         }
-        registrar("help", "/help", "Mostra esta lista de comandos.", this::ajuda);
-        registrar("users", "/users", "Lista os usuários online na sua sala.", this::usuarios);
-        registrar("history", "/history [quantidade]",
-                "Mostra as últimas mensagens da sala (de 1 a " + HISTORICO_MAXIMO + ").",
-                this::historico);
-        registrar("msg", "/msg usuario texto", "Envia uma mensagem privada a um usuário online.",
-                this::privada);
-        registrar("conversas", "/conversas", "Lista as suas conversas privadas.", this::conversas);
-        registrar("conversa", "/conversa usuario [quantidade]",
-                "Mostra a sua conversa privada com um usuário (de 1 a " + HISTORICO_MAXIMO + " mensagens).",
-                this::conversa);
-        registrar("buscar", "/buscar usuario|texto|periodo ...",
-                "Busca no histórico da sala (ex.: /buscar texto java).", this::buscar);
-        registrar("join", "/join sala", "Entra em uma sala (cria se ainda não existir).", this::entrarSala);
-        registrar("leave", "/leave", "Sai da sala atual e volta para a geral.", this::sairSala);
-        registrar("rooms", "/rooms", "Lista as salas ativas.", this::listarSalas);
-        String soAdmin = administradores.restrito() ? " (somente administrador)" : "";
-        if (exportador != null) {
-            registrar("exportar", "/exportar",
-                    "Grava o histórico da sala atual em um arquivo .txt no servidor." + soAdmin,
-                    this::exportar);
-        }
-        if (administradores.restrito() && auth != null && auth.suportaBanimento()) {
-            registrar("ban", "/ban usuario",
-                    "Bane um usuário: remove do chat e impede de entrar (somente administrador).", this::banir);
-            registrar("unban", "/unban usuario", "Tira o banimento de um usuário (somente administrador).",
-                    this::desbanir);
-            registrar("bans", "/bans", "Lista os usuários banidos (somente administrador).", this::listarBanidos);
-        }
-        if (administradores.restrito()) {
-            registrar("kick", "/kick usuario", "Remove um usuário do chat (somente administrador).",
-                    this::remover);
-            registrar("limpar", "/limpar", "Apaga o histórico da sala atual (somente administrador).",
-                    this::limpar);
-        }
-        registrar("quit", "/quit", "Sai do chat.", this::sair);
-    }
-
-    private void registrar(String nome, String uso, String descricao, Comando comando) {
-        comandos.put(nome, new Registro(uso, descricao, comando));
+        basicos.registrarAjuda(tabela);
+        new ComandosDeConsulta(chat, registry).registrarEm(tabela);
+        new ComandosDeConversa(chat).registrarEm(tabela);
+        new ComandosDeSala(salas).registrarEm(tabela);
+        new ComandosDeAdministracao(chat, registry, auth, exportador, administradores).registrarEm(tabela);
+        basicos.registrarSaida(tabela);
     }
 
     /** Indica se é preciso entrar (com /login ou /register) antes de usar o chat. */
@@ -175,7 +112,7 @@ public class CommandService {
             throw new IllegalArgumentException("Um comando começa com '/'. Use /help para ver a lista.");
         }
         String corpo = linha.strip().substring(1);
-        int espaco = indiceDoEspaco(corpo);
+        int espaco = ArgumentosDeComando.indiceDoEspaco(corpo);
         String nome = espaco < 0 ? corpo : corpo.substring(0, espaco);
         String argumentos = espaco < 0 ? "" : corpo.substring(espaco).strip();
         if (nome.isEmpty()) {
@@ -183,8 +120,8 @@ public class CommandService {
                     "Digite o nome do comando depois da barra. Use /help para ver a lista."));
             return;
         }
-        Registro registro = comandos.get(nome.toLowerCase(Locale.ROOT));
-        if (registro == null) {
+        var entrada = tabela.buscar(nome);
+        if (entrada.isEmpty()) {
             origem.enviar(new Evento.Erro("Comando desconhecido: /" + nome
                     + ". Digite /help para ver os comandos disponíveis."));
             return;
@@ -195,328 +132,9 @@ public class CommandService {
             return;
         }
         try {
-            registro.comando().executar(origem, argumentos);
+            entrada.get().comando().executar(origem, argumentos);
         } catch (IllegalArgumentException e) {
             origem.enviar(new Evento.Erro(e.getMessage()));
         }
-    }
-
-    private static int indiceDoEspaco(String texto) {
-        for (int i = 0; i < texto.length(); i++) {
-            if (Character.isWhitespace(texto.charAt(i))) {
-                return i;
-            }
-        }
-        return -1;
-    }
-
-    private void ajuda(ClienteHandler origem, String argumentos) {
-        StringBuilder sb = new StringBuilder("Comandos disponíveis:");
-        for (Registro r : comandos.values()) {
-            sb.append('\n').append(r.uso()).append(" - ").append(r.descricao());
-        }
-        origem.enviar(new Evento.Sistema(sb.toString()));
-    }
-
-    private void usuarios(ClienteHandler origem, String argumentos) {
-        origem.enviar(new Evento.Usuarios(origem.sala(), registry.usuariosNaSala(origem.sala())));
-    }
-
-    private void historico(ClienteHandler origem, String argumentos) {
-        int quantidade = ChatService.HISTORICO_INICIAL;
-        if (!argumentos.isEmpty()) {
-            if (!QUANTIDADE.matcher(argumentos).matches()) {
-                throw usoDoHistorico();
-            }
-            quantidade = Integer.parseInt(argumentos);
-            if (quantidade < 1 || quantidade > HISTORICO_MAXIMO) {
-                throw usoDoHistorico();
-            }
-        }
-        List<Evento.Msg> mensagens = chat.buscarHistorico(origem.sala(), quantidade).stream()
-                .map(Evento.Msg::de).toList();
-        if (mensagens.isEmpty()) {
-            origem.enviar(new Evento.Sistema(Mensagens.SEM_HISTORICO));
-        } else {
-            origem.enviar(new Evento.Historico(mensagens));
-        }
-    }
-
-    private static IllegalArgumentException usoDoHistorico() {
-        return new IllegalArgumentException("Uso: /history [quantidade], com a quantidade de 1 a "
-                + HISTORICO_MAXIMO + ". Exemplo: /history 10");
-    }
-
-    private void criarConta(ClienteHandler origem, String argumentos) {
-        exigirSemLogin(origem);
-        String[] dados = nomeESenha(argumentos, "/register nome senha");
-        Usuario usuario = auth.registrar(dados[0], dados[1]);
-        chat.entrar(origem, usuario);
-        informarPapel(origem, usuario);
-    }
-
-    private void entrarComConta(ClienteHandler origem, String argumentos) {
-        exigirSemLogin(origem);
-        String[] dados = nomeESenha(argumentos, "/login nome senha");
-        Usuario usuario = auth.autenticar(dados[0], dados[1]);
-        if (registry.buscarPorUsuario(usuario.nome()).isPresent()) {
-            throw new IllegalArgumentException("O usuário '" + usuario.nome()
-                    + "' já está conectado em outra sessão. Feche a outra sessão e tente de novo.");
-        }
-        chat.entrar(origem, usuario);
-        informarPapel(origem, usuario);
-    }
-
-    /** Em servidor com restrição, diz ao cliente se ele é administrador (a interface esconde o resto). */
-    private void informarPapel(ClienteHandler origem, Usuario usuario) {
-        if (administradores.restrito()) {
-            origem.enviar(new Evento.Papel(administradores.ehAdmin(usuario.nome())));
-        }
-    }
-
-    private static void exigirSemLogin(ClienteHandler origem) {
-        origem.usuario().ifPresent(u -> {
-            throw new IllegalArgumentException("Você já está conectado como " + u.nome()
-                    + ". Use /quit para sair e entrar com outra conta.");
-        });
-    }
-
-    /** Separa "nome senha com espaços" em nome e senha (a senha é o resto da linha). */
-    private static String[] nomeESenha(String argumentos, String uso) {
-        int espaco = indiceDoEspaco(argumentos);
-        String nome = espaco < 0 ? argumentos : argumentos.substring(0, espaco);
-        String senha = espaco < 0 ? "" : argumentos.substring(espaco).strip();
-        if (nome.isEmpty() || senha.isEmpty()) {
-            throw new IllegalArgumentException("Uso: " + uso + ". Exemplo: " + uso.replace("nome", "ana")
-                    .replace("senha", "minhasenha"));
-        }
-        return new String[] {nome, senha};
-    }
-
-    private void exportar(ClienteHandler origem, String argumentos) {
-        exigirAdmin(origem, "/exportar");
-        if (!argumentos.isEmpty()) {
-            throw new IllegalArgumentException(
-                    "Uso: /exportar (sem argumentos). O histórico da sua sala atual é gravado em um arquivo .txt.");
-        }
-        List<Mensagem> mensagens = chat.buscarHistorico(origem.sala(), EXPORTACAO_MAXIMA);
-        if (mensagens.isEmpty()) {
-            throw new IllegalArgumentException("Não há mensagens para exportar nesta sala.");
-        }
-        try {
-            Path arquivo = exportador.exportar(origem.sala(),
-                    mensagens.stream().map(Mensagem::formatar).toList());
-            String limite = mensagens.size() == EXPORTACAO_MAXIMA
-                    ? " (limitado às últimas " + EXPORTACAO_MAXIMA + " mensagens)" : "";
-            origem.enviar(new Evento.Ok("Histórico exportado para o arquivo " + arquivo.getFileName()
-                    + " na pasta de exportações do servidor" + limite + "."));
-        } catch (IOException e) {
-            LOG.log(Level.SEVERE, "Falha ao exportar o histórico: " + e.getMessage(), e);
-            throw new IllegalArgumentException("Não foi possível gravar o arquivo de exportação. "
-                    + "Avise quem administra o servidor para verificar o espaço em disco e as permissões.");
-        }
-    }
-
-    /** Recusa o comando se quem o pediu não for administrador. */
-    private void exigirAdmin(ClienteHandler origem, String comando) {
-        if (!administradores.ehAdmin(nomeDe(origem))) {
-            throw new IllegalArgumentException("Somente o administrador pode usar " + comando
-                    + ". Peça a quem administra o servidor.");
-        }
-    }
-
-    private static String nomeDe(ClienteHandler origem) {
-        return origem.usuario().map(Usuario::nome).orElse(null);
-    }
-
-    private void remover(ClienteHandler origem, String argumentos) {
-        exigirAdmin(origem, "/kick");
-        if (argumentos.isEmpty() || indiceDoEspaco(argumentos) >= 0) {
-            throw new IllegalArgumentException("Uso: /kick usuario. Exemplo: /kick ana");
-        }
-        String meuNome = nomeDe(origem);
-        if (argumentos.equalsIgnoreCase(meuNome)) {
-            throw new IllegalArgumentException("Você não pode remover a si mesmo. Use /quit para sair.");
-        }
-        if (administradores.ehAdmin(argumentos)) {
-            throw new IllegalArgumentException("Não é possível remover outro administrador.");
-        }
-        ClienteHandler alvo = registry.buscarPorUsuario(argumentos).orElseThrow(() ->
-                new IllegalArgumentException("O usuário '" + argumentos
-                        + "' não está online. Use /users para ver quem está conectado."));
-        alvo.enviar(new Evento.Erro("Você foi removido do chat pelo administrador " + meuNome + "."));
-        alvo.encerrar();
-        origem.enviar(new Evento.Ok("O usuário " + argumentos + " foi removido do chat."));
-    }
-
-    private static String umNome(String argumentos, String uso) {
-        if (argumentos.isEmpty() || indiceDoEspaco(argumentos) >= 0) {
-            throw new IllegalArgumentException("Uso: " + uso);
-        }
-        return argumentos;
-    }
-
-    private void banir(ClienteHandler origem, String argumentos) {
-        exigirAdmin(origem, "/ban");
-        String nome = umNome(argumentos, "/ban usuario. Exemplo: /ban ana");
-        String meuNome = nomeDe(origem);
-        if (nome.equalsIgnoreCase(meuNome)) {
-            throw new IllegalArgumentException("Você não pode banir a si mesmo.");
-        }
-        if (administradores.ehAdmin(nome)) {
-            throw new IllegalArgumentException("Não é possível banir um administrador.");
-        }
-        if (!auth.banir(nome)) {
-            throw new IllegalArgumentException("O usuário '" + nome
-                    + "' já está banido. Use /bans para ver a lista.");
-        }
-        Optional<ClienteHandler> alvo = registry.buscarPorUsuario(nome);
-        alvo.ifPresent(a -> {
-            a.enviar(new Evento.Erro("Você foi banido pelo administrador " + meuNome + "."));
-            a.encerrar();
-        });
-        origem.enviar(new Evento.Ok("O usuário " + nome + " foi banido"
-                + (alvo.isPresent() ? " e removido do chat." : ".")));
-    }
-
-    private void desbanir(ClienteHandler origem, String argumentos) {
-        exigirAdmin(origem, "/unban");
-        String nome = umNome(argumentos, "/unban usuario. Exemplo: /unban ana");
-        if (!auth.desbanir(nome)) {
-            throw new IllegalArgumentException("O usuário '" + nome
-                    + "' não está banido. Use /bans para ver a lista.");
-        }
-        origem.enviar(new Evento.Ok("O usuário " + nome + " pode entrar de novo."));
-    }
-
-    private void listarBanidos(ClienteHandler origem, String argumentos) {
-        exigirAdmin(origem, "/bans");
-        List<String> banidos = auth.listarBanidos();
-        origem.enviar(new Evento.Sistema(banidos.isEmpty() ? "Nenhum usuário banido."
-                : "Banidos (" + banidos.size() + "): " + String.join(", ", banidos)));
-    }
-
-    private void limpar(ClienteHandler origem, String argumentos) {
-        exigirAdmin(origem, "/limpar");
-        if (!argumentos.isEmpty()) {
-            throw new IllegalArgumentException(
-                    "Uso: /limpar (sem argumentos). O histórico da sua sala atual é apagado.");
-        }
-        int apagadas = chat.limparSala(origem.sala(), nomeDe(origem));
-        origem.enviar(new Evento.Ok(apagadas + (apagadas == 1 ? " mensagem apagada" : " mensagens apagadas")
-                + " da sala " + origem.sala() + "."));
-    }
-
-    private void conversas(ClienteHandler origem, String argumentos) {
-        if (!argumentos.isEmpty()) {
-            throw new IllegalArgumentException("Uso: /conversas (sem argumentos).");
-        }
-        origem.enviar(new Evento.Conversas(chat.conversasDe(nomeObrigatorio(origem))));
-    }
-
-    private void conversa(ClienteHandler origem, String argumentos) {
-        String[] partes = argumentos.isEmpty() ? new String[0] : argumentos.split("\\s+");
-        if (partes.length < 1 || partes.length > 2) {
-            throw usoDaConversa();
-        }
-        int quantidade = CONVERSA_PADRAO;
-        if (partes.length == 2) {
-            if (!QUANTIDADE.matcher(partes[1]).matches()) {
-                throw usoDaConversa();
-            }
-            quantidade = Integer.parseInt(partes[1]);
-            if (quantidade < 1 || quantidade > HISTORICO_MAXIMO) {
-                throw usoDaConversa();
-            }
-        }
-        List<Evento.Privada> mensagens = chat.conversa(nomeObrigatorio(origem), partes[0], quantidade).stream()
-                .map(m -> new Evento.Privada(m.remetente().nome(), m.destinatario().orElseThrow().nome(),
-                        m.horario(), m.conteudo()))
-                .toList();
-        origem.enviar(new Evento.Conversa(partes[0], mensagens));
-    }
-
-    private static IllegalArgumentException usoDaConversa() {
-        return new IllegalArgumentException("Uso: /conversa usuario [quantidade], com a quantidade de 1 a "
-                + HISTORICO_MAXIMO + ". Exemplo: /conversa ana 20");
-    }
-
-    private static String nomeObrigatorio(ClienteHandler origem) {
-        String nome = nomeDe(origem);
-        if (nome == null) {
-            throw new IllegalArgumentException("Entre no chat antes de ver as suas conversas.");
-        }
-        return nome;
-    }
-
-    private void privada(ClienteHandler origem, String argumentos) {
-        int espaco = indiceDoEspaco(argumentos);
-        String nome = espaco < 0 ? argumentos : argumentos.substring(0, espaco);
-        String texto = espaco < 0 ? "" : argumentos.substring(espaco).strip();
-        if (nome.isEmpty() || texto.isEmpty()) {
-            throw new IllegalArgumentException("Uso: /msg usuario texto. Exemplo: /msg ana Olá!");
-        }
-        chat.enviarPrivada(origem, nome, texto);
-    }
-
-    private void buscar(ClienteHandler origem, String argumentos) {
-        String[] palavras = argumentos.isEmpty() ? new String[0] : argumentos.split("\\s+");
-        if (palavras.length < 2) {
-            throw usoDaBusca();
-        }
-        String tipo = palavras[0].toLowerCase(Locale.ROOT);
-        String resto = argumentos.substring(palavras[0].length()).strip();
-        List<Mensagem> achadas = switch (tipo) {
-            case "usuario" -> palavras.length == 2 ? chat.buscarPorUsuario(origem.sala(), palavras[1])
-                    : semResultado();
-            case "texto" -> chat.buscarPorTexto(origem.sala(), resto);
-            case "periodo" -> palavras.length == 3
-                    ? chat.buscarPorPeriodo(origem.sala(), data(palavras[1]), data(palavras[2]))
-                    : semResultado();
-            default -> semResultado();
-        };
-        List<Evento.Msg> mensagens = achadas.stream().map(Evento.Msg::de).toList();
-        if (mensagens.isEmpty()) {
-            origem.enviar(new Evento.Sistema(Mensagens.SEM_RESULTADO_DE_BUSCA));
-        } else {
-            origem.enviar(new Evento.Historico(mensagens));
-        }
-    }
-
-    private static List<Mensagem> semResultado() {
-        throw usoDaBusca();
-    }
-
-    private static LocalDate data(String texto) {
-        try {
-            return LocalDate.parse(texto);
-        } catch (DateTimeParseException e) {
-            throw usoDaBusca();
-        }
-    }
-
-    private static IllegalArgumentException usoDaBusca() {
-        return new IllegalArgumentException("Uso: /buscar usuario <nome> | /buscar texto <trecho> | "
-                + "/buscar periodo <AAAA-MM-DD> <AAAA-MM-DD>. Exemplo: /buscar periodo 2026-10-01 2026-10-31");
-    }
-
-    private void entrarSala(ClienteHandler origem, String argumentos) {
-        if (argumentos.isEmpty()) {
-            throw new IllegalArgumentException("Uso: /join sala. Exemplo: /join java");
-        }
-        salas.entrarSala(origem, argumentos);
-    }
-
-    private void sairSala(ClienteHandler origem, String argumentos) {
-        salas.sairSala(origem);
-    }
-
-    private void listarSalas(ClienteHandler origem, String argumentos) {
-        origem.enviar(new Evento.Salas(salas.listarSalas()));
-    }
-
-    private void sair(ClienteHandler origem, String argumentos) {
-        origem.enviar(new Evento.Ok("Até logo!"));
-        origem.encerrar();
     }
 }
