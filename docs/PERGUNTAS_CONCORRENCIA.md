@@ -12,10 +12,10 @@ Duas threads mexem no mesmo dado ao mesmo tempo e o resultado depende de quem ch
 Evita `ConcurrentModificationException` e evita segurar o lock durante escrita de rede, que pode demorar.
 
 **4. Duas pessoas enviam ao mesmo tempo. Todos veem a mesma ordem?**
-Sim. `ChatService` serializa "salvar e transmitir" com um lock. A ordem gravada no banco é a ordem entregue a todos.
+Sim. As mensagens públicas passam por uma fila e uma única thread consumidora (`SequenciadorDeMensagens`) grava e transmite. A ordem gravada no banco é a ordem entregue a todos. Veja também a pergunta 17.
 
 **5. Isso não vira um gargalo?**
-Pode, porque a gravação fica dentro do lock. Foi decisão consciente: a ordem igual para todos é o requisito. O custo está registrado na revisão.
+Era, quando cada mensagem era gravada sozinha dentro do lock. Hoje a gravação é feita em lote por uma thread só: as mensagens que chegam enquanto o banco trabalha esperam juntas e são gravadas numa transação. Na carga de 50 clientes por socket, o tempo caiu de cerca de 3 s para 0,6 a 1 s. A ordem igual para todos continua garantida.
 
 **6. Um cliente lento pode travar os outros?**
 Não. Cada cliente tem fila de saída e thread de escrita. O broadcast só enfileira. Se a fila passa de 256 KB, o cliente é desconectado.
@@ -48,4 +48,19 @@ Com `CountDownLatch` para largar as threads juntas, `join` e `awaitTermination` 
 `CorridaDeDados`: sem sincronização o total ficou entre 1,19 e 1,99 milhão de 2 milhões. Com `synchronized` e `AtomicLong` fechou 2.000.000 sempre.
 
 **16. Qual risco ainda existe?**
-A gravação dentro do lock de ordem e a falta de keep-alive. Também a senha sem TLS, que é segurança e não concorrência.
+A thread consumidora é única: se o banco ficar muito lento, a fila cresce e quem envia espera (no máximo 60 s, depois recebe um erro pedindo para tentar de novo). Também a senha sem TLS, que é segurança e não concorrência.
+
+**17. Onde está o produtor-consumidor no projeto?**
+No `SequenciadorDeMensagens`. As threads dos clientes são as produtoras: colocam a mensagem numa fila (`ConcurrentLinkedQueue`) e esperam o resultado. Uma única thread consumidora tira até 100 mensagens da fila, grava todas numa transação (`salvarTodas`) e transmite na ordem de gravação. Quem enviou só recebe a resposta depois de a mensagem estar gravada e transmitida; se o banco falhar, recebe o erro.
+
+**18. Por que gravar em lote?**
+Cada gravação no SQLite custa uma transação. Com um lote, o custo é dividido entre várias mensagens. Se o lote inteiro falhar, o sequenciador tenta cada mensagem sozinha, para que uma mensagem com problema não derrube as outras.
+
+**19. A thread consumidora fica rodando o tempo todo?**
+Não. Ela é criada quando chega mensagem e termina depois de 2 s ociosa. É uma thread daemon, então não impede o servidor de encerrar.
+
+**20. O que é o heartbeat e por que ele existe?**
+Sem ele, um cliente que some sem fechar a conexão (cabo desligado, rede caiu) continuaria na lista como online, porque o servidor só percebe a queda quando tenta escrever. O `MonitorDeConexoes` manda um `PING` a todos a cada 15 s. O cliente responde `/pong` sozinho. Quem fica 45 s (três PING) sem enviar nada é desconectado, sai do registro e os outros recebem o aviso.
+
+**21. O heartbeat atrapalha as outras threads?**
+Não. O monitor roda numa thread daemon própria e só enfileira o PING na fila de saída de cada cliente, como qualquer broadcast. Um cliente lento não trava o monitor, nem os demais.
