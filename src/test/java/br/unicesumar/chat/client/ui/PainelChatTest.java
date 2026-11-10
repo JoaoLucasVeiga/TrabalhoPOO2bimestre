@@ -374,14 +374,15 @@ class PainelChatTest {
     }
 
     @Test
-    void osBotoesDaBarraTemAparenciaDeBotao() throws Exception {
+    void todosOsBotoesDoCabecalhoFicamNaMesmaLinhaDoTituloEComEstiloDiscreto() throws Exception {
         edt();
-        for (var b : List.of(painel.botaoHistorico(), painel.botaoBuscar(), painel.botaoExportar(), painel.botaoSair())) {
-            assertEquals("roundRect", b.getClientProperty("JButton.buttonType"), b.getText());
+        for (var b : List.of(painel.botaoHistorico(), painel.botaoBuscar(), painel.botaoExportar(), painel.botaoSair(),
+                painel.botaoTema())) {
+            assertTrue(SwingUtilities.isDescendingFrom(b, painel.topo()), b.getText());
+            assertEquals("toolBarButton", b.getClientProperty("JButton.buttonType"), b.getText());
         }
+        assertTrue(SwingUtilities.isDescendingFrom(painel.titulo(), painel.topo()));
     }
-
-    // ---------- nada fora da EDT ----------
 
     @Test
     void ochecadorDeEdtRealmenteDetectaAlteracaoForaDaEdt() throws Exception {
@@ -533,13 +534,12 @@ class PainelChatTest {
     }
 
     @Test
-    void cabecalhoEBarraDeMensagemFicamSoSobOChatEntreAsDuasColunas() throws Exception {
+    void cabecalhoECaixaDeMensagemFicamSoNoChatEntreAsDuasColunas() throws Exception {
         edt();
         LayoutDeTeste.forcar(painel, 1200, 700);
         int esquerda = painel.lateral().getWidth();
         int direita = painel.lateral().colunaDosMembros().getWidth();
         assertEquals(1200 - esquerda - direita, painel.topo().getWidth());
-        assertEquals(1200 - esquerda - direita, painel.barra().getWidth());
         assertEquals(1200 - esquerda - direita, painel.entrada().getWidth());
     }
 
@@ -559,5 +559,30 @@ class PainelChatTest {
         painel.lateral().atualizarUsuarios(List.of("ana", "bia"), "ana");
         painel.lateral().acionarUsuario(1);
         esperar(() -> "Mensagem para @bia".equals(painel.entrada().campo().getClientProperty("JTextField.placeholderText")));
+    }
+
+    @Test
+    void botoesDoCabecalhoTemTextoCurtoEOAtalhoFicaNaDica() throws Exception {
+        edt();
+        assertEquals("Buscar", painel.botaoBuscar().getText());
+        assertTrue(painel.botaoBuscar().getToolTipText().contains("Ctrl+F"));
+        assertEquals("Sair", painel.botaoSair().getText());
+        assertTrue(painel.botaoSair().getToolTipText().contains("Ctrl+Q"));
+    }
+
+    @Test
+    void oResumoEOIndicadorDeConexaoCabemNoCabecalhoNaLarguraPadraoDaJanela() throws Exception {
+        edt();
+        LayoutDeTeste.forcar(painel, 1180, 700);
+        assertTrue(painel.resumoDeUsuarios().getWidth() > 80, "resumo " + painel.resumoDeUsuarios().getWidth());
+        assertTrue(painel.indicador().getWidth() > 40, "indicador " + painel.indicador().getWidth());
+    }
+
+    @Test
+    void naLarguraMinimaDaJanelaOIndicadorContinuaInteiroEOResumoEncolhe() throws Exception {
+        edt();
+        LayoutDeTeste.forcar(painel, 1080, 560);
+        assertEquals(painel.indicador().getPreferredSize().width, painel.indicador().getWidth());
+        assertTrue(painel.resumoDeUsuarios().getWidth() >= 60, "resumo " + painel.resumoDeUsuarios().getWidth());
     }
 }

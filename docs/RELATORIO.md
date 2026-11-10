@@ -8,7 +8,7 @@ Programação Orientada a Objetos · 2º bimestre · github.com/JoaoLucasVeiga/T
 
 O projeto é um chat cliente-servidor em Java 21 que usa sockets TCP. O servidor aceita vários clientes ao mesmo tempo, retransmite cada mensagem para todos os conectados e grava o histórico em um banco SQLite por JDBC. Quando um cliente conecta, recebe as últimas mensagens já gravadas.
 
-Além do núcleo pedido, o sistema tem lista de usuários online, mensagens privadas, salas, busca no histórico, login com senha protegida por PBKDF2, exportação do histórico e uma interface gráfica em Swing.
+Além do núcleo pedido, o sistema tem lista de usuários online, conversas privadas com histórico, salas, busca no histórico, login com senha protegida por PBKDF2 e um administrador que exporta o histórico, remove, bane e limpa salas. A interface gráfica, em Swing, tem três colunas (salas e conversas, chat e membros), avatares e mensagens em bloco.
 
 ## 2. Arquitetura
 
@@ -16,13 +16,13 @@ O código está dividido em pacotes, e cada um tem uma responsabilidade:
 
 - **model:** Usuario, Mensagem e Sala. É o domínio puro e não conhece rede, banco nem tela.
 
-- **persistence:** a interface MensagemRepository. Todo o SQL fica na implementação JDBC, em persistence.jdbc.
+- **persistence:** as interfaces MensagemRepository (mensagens, conversas privadas e limpeza de sala), UsuarioRepository e BanimentoRepository. Todo o SQL fica nas implementações JDBC, em persistence.jdbc.
 
-- **server:** Servidor, ClienteHandler, ClientRegistry e os serviços (ChatService, CommandService, SalaService, AuthService).
+- **server:** Servidor, ClienteHandler, ClientRegistry e os serviços (ChatService, CommandService, SalaService, AuthService, Administradores e PreparoDeAdmin).
 
-- **client:** o cliente de terminal, o controlador e as telas Swing.
+- **client:** o cliente de terminal, o controlador (que sabe se o usuário vê uma sala ou uma conversa privada) e as telas Swing (JanelaChat, PainelLateral, LinhaMensagem e AvatarIcon).
 
-- **protocol e infra:** a codificação das linhas de texto trocadas pelo socket, e a exportação e o log em arquivo.
+- **protocol e infra:** a codificação das linhas de texto trocadas pelo socket, e a exportação, o log em arquivo e a leitura da configuração do servidor.
 
 O caminho de uma mensagem é este:
 
@@ -36,7 +36,15 @@ O caminho de uma mensagem é este:
 
 Algumas decisões de projeto: o ChatService depende da interface do repositório, e a classe JDBC só é escolhida no main. Cada interface tem um adaptador real e um falso (repositório em memória e conexão falsa), o que permite testar sem rede e sem banco. Mensagem é um objeto de valor imutável, Usuario é uma entidade identificada pelo nome e Sala é a raiz do agregado.
 
-## 3. Concorrência
+## 3. Administração e conversas privadas
+
+**Administrador.** A conta do administrador não está no código. Ela vem do arquivo servidor.properties, que não vai para o GitHub, ou de variáveis de ambiente. O servidor cria a conta na partida, se ela não existir, com a senha guardada por PBKDF2 e salt. Sem essa configuração, ninguém é administrador e os comandos de administração ficam bloqueados. Só o administrador usa /exportar, /kick, /limpar, /ban, /unban e /bans, e ele não lê mensagens privadas.
+
+**Banimento.** O nome banido fica gravado no banco e continua valendo depois de reiniciar o servidor. Quem foi banido não entra com /login, mesmo com a senha certa, e não cria conta com esse nome. O banimento é por nome de usuário, não por endereço de rede.
+
+**Conversas privadas.** Cada conversa entre dois usuários é guardada no banco e consultada por par, nos dois sentidos. Dá para escrever a quem está offline, desde que tenha conta, e a pessoa vê a mensagem quando entrar. Na interface, há uma lista de conversas com contador de não lidas, e a conversa abre na área principal, separada do chat da sala. Cada usuário só enxerga as próprias conversas.
+
+## 4. Concorrência
 
 Cada cliente roda em uma thread própria. Os recursos que várias threads usam ao mesmo tempo, e como cada um foi protegido, estão na tabela abaixo.
 
@@ -54,11 +62,11 @@ Os campos lidos por mais de uma thread são volatile ou AtomicBoolean. Quando um
 
 **Riscos que ficaram.** A gravação no banco acontece dentro do lock de ordem, então um INSERT lento atrasa todos os envios. Foi mantido assim porque a mesma ordem para todos é o requisito. Também não há keep-alive TCP.
 
-## 4. Testes
+## 5. Testes
 
-São 908 testes com JUnit 5, todos passando. Os testes unitários não usam rede nem banco real. Os de integração usam SQLite em arquivo temporário e sockets em loopback. Os testes de concorrência usam 8 threads, @RepeatedTest(10), CountDownLatch e join, sem Thread.sleep. O repositório em memória e o JDBC passam pelo mesmo contrato de testes.
+São 1125 testes com JUnit 5, todos passando. Os testes unitários não usam rede nem banco real. Os de integração usam SQLite em arquivo temporário e sockets em loopback. Os testes de concorrência usam 8 threads, @RepeatedTest(10), CountDownLatch e join, sem Thread.sleep. O repositório em memória e o JDBC passam pelo mesmo contrato de testes.
 
-## 5. Onde a IA foi usada
+## 6. Onde a IA foi usada
 
 - O projeto foi desenvolvido com apoio do Claude (IA), que escreveu o código e os testes em etapas, seguindo TDD: primeiro o teste falhando, depois o mínimo de código. Cada etapa terminou com os testes verdes e um commit.
 
@@ -68,9 +76,11 @@ São 908 testes com JUnit 5, todos passando. Os testes unitários não usam rede
 
 - Erros da IA que foram encontrados: ela afirmou que os testes tinham passado em 8 rodadas sem ter contado. Passamos a conferir o resultado real de cada rodada, o que revelou testes instáveis, que foram consertados. Houve também um teste vermelho cujo defeito estava no próprio teste (um repositório falso que não falhava ao ler), corrigido depois.
 
-- Regra seguida: nenhum teste foi alterado só para passar. As mudanças em testes antigos foram autorizadas antes.
+- Depois da primeira entrega, a IA também implementou o administrador, o banimento, as conversas privadas e a nova interface, sempre com testes primeiro e em etapas.
 
-## 6. Limitações
+- Regra seguida: nenhum teste foi alterado só para passar. Os testes antigos que descreviam um comportamento que mudou de propósito (por exemplo, as mensagens privadas no meio da sala e os balões de mensagem) só foram atualizados com autorização do autor.
+
+## 7. Limitações
 
 - A senha trafega sem criptografia, porque não há TLS. O hash PBKDF2 com salt protege só o que fica gravado no banco.
 
@@ -78,12 +88,16 @@ São 908 testes com JUnit 5, todos passando. Os testes unitários não usam rede
 
 - A gravação dentro do lock de ordem pode atrasar os envios sob carga alta.
 
+- As mensagens não lidas das conversas privadas são contadas só enquanto a janela está aberta; não ficam guardadas entre sessões.
+
+- O banimento é por nome de usuário: quem foi banido pode tentar criar outro nome. Depois de /limpar, as telas já abertas só perdem as mensagens antigas ao reentrar na sala.
+
 - Ao ler mensagens antigas, a janela não avisa que chegaram mensagens novas.
 
 - CommandService e ChatService são as maiores classes e estão no limite do tamanho aceitável.
 
 - Os testes automáticos de janela rodaram só em Linux. No Windows, o iniciar-tudo.bat abriu o servidor e as janelas do chat.
 
-## 7. Como executar
+## 8. Como executar
 
-Baixe o repositório, instale o Java 21 e, na pasta do projeto, dê dois cliques em iniciar-tudo.bat (Windows). Na primeira vez ele compila o projeto sozinho e depois abre o servidor e três janelas do chat. Os detalhes e os comandos do chat estão no README.
+Baixe o repositório, instale o Java 21 e, na pasta do projeto, dê dois cliques em iniciar-tudo.bat (Windows). Na primeira vez ele compila o projeto sozinho e depois abre o servidor e três janelas do chat. Para usar o administrador, copie servidor.properties.exemplo para servidor.properties e preencha. Os detalhes e os comandos do chat estão no README.

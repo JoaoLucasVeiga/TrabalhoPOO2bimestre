@@ -91,4 +91,10 @@ class IndicadorConexaoTest {
         assertThrows(NullPointerException.class, () -> new IndicadorConexao(null));
         assertThrows(NullPointerException.class, () -> new IndicadorConexao(tema).definir(null));
     }
+
+    @Test
+    void tamanhoMinimoEIgualAoPreferidoParaOLayoutNaoEncolherOIndicador() {
+        IndicadorConexao indicador = new IndicadorConexao(new Tema(Tema.Modo.CLARO));
+        assertEquals(indicador.getPreferredSize(), indicador.getMinimumSize());
+    }
 }

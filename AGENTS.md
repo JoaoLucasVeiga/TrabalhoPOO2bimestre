@@ -12,15 +12,15 @@ professor vence qualquer regra daqui em caso de conflito.
 | Pacote | Conteúdo |
 |---|---|
 | `model` | Usuario, Mensagem, Sala, CredencialUsuario (imutáveis, domínio puro) |
-| `persistence` | interfaces MensagemRepository, UsuarioRepository |
-| `persistence.jdbc` | JdbcMensagemRepository, JdbcUsuarioRepository, ConnectionFactory |
+| `persistence` | interfaces MensagemRepository, UsuarioRepository, BanimentoRepository |
+| `persistence.jdbc` | JdbcMensagemRepository, JdbcUsuarioRepository, JdbcBanimentoRepository, ConnectionFactory |
 | `persistence.memory` | repositórios em memória (testes) |
 | `protocol` | Protocolo (codificar/decodificar eventos de texto) |
 | `server` | Servidor, ClienteHandler, ClientRegistry, ChatService, CommandService, SalaService, AuthService, Administradores, PreparoDeAdmin |
 | `infra` | ExportadorHistorico, LogArquivo, ConfiguracaoServidor (servidor.properties e variáveis de ambiente) |
 | `client.net` | ConexaoChat (interface), ConexaoSocket, ConexaoFalsa |
 | `client.controller` | ChatController, ChatView (interface) |
-| `client.ui` | JanelaLogin, JanelaChat, DialogoBusca, Tema (Swing) |
+| `client.ui` | JanelaLogin, JanelaChat, PainelChat, PainelLateral (salas, conversas, membros), LinhaMensagem, AvatarIcon, DialogoBusca, Tema (Swing) |
 | `client` | ClienteChat (terminal) |
 
 ## Regras de arquitetura

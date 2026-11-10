@@ -48,6 +48,9 @@ public final class Tema {
             Color textoBalaoPrivado, Color erro, Color sucesso, Color atencao) {
     }
 
+    /** Raio dos cantos de botões, campos e caixas: o mesmo em toda a interface. */
+    public static final int RAIO_DOS_CANTOS = 12;
+
     /** Unidade da grade de espaçamento, em pixels. */
     public static final int GRADE = 8;
     /** Tamanho da fonte do corpo (nunca abaixo de 13). */
@@ -176,8 +179,11 @@ public final class Tema {
      */
     public void instalarLookAndFeel() {
         Color destaque = paleta().destaque();
-        FlatLaf.setGlobalExtraDefaults(Map.of("@accentColor",
-                String.format("#%02X%02X%02X", destaque.getRed(), destaque.getGreen(), destaque.getBlue())));
+        FlatLaf.setGlobalExtraDefaults(Map.of(
+                "@accentColor", String.format("#%02X%02X%02X", destaque.getRed(), destaque.getGreen(), destaque.getBlue()),
+                "Button.arc", String.valueOf(RAIO_DOS_CANTOS),
+                "Component.arc", String.valueOf(RAIO_DOS_CANTOS),
+                "TextComponent.arc", String.valueOf(RAIO_DOS_CANTOS)));
         if (modo == Modo.CLARO) {
             FlatLightLaf.setup();
         } else {

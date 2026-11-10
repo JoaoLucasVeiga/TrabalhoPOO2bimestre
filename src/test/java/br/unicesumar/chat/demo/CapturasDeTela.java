@@ -129,7 +129,7 @@ public final class CapturasDeTela {
             preencher(chat[0]);
             chat[0].painel().entrada().campo().setText("Que ótimo! Vou rodar o servidor agora e já te aviso.");
             chat[0].painel().entrada().campo().select(0, 0); // sem o texto marcado na captura
-            chat[0].setSize(new Dimension(1000, 680));
+            chat[0].setSize(new Dimension(1180, 700));
             chat[0].setVisible(true);
         });
         esperarEdt();

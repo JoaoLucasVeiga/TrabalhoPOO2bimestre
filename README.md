@@ -90,14 +90,16 @@ O `servidor.properties` está no `.gitignore` e não vai para o GitHub. Em vez d
 
 ## 4. Usar o chat e comandos
 
-No cliente gráfico, digite na caixa de baixo e pressione Enter. Os comandos abaixo também valem na interface gráfica e no terminal.
+No cliente gráfico, digite na caixa de baixo e pressione Enter. Duplo clique em um usuário da coluna da direita, ou clique em uma conversa da lista, abre a conversa privada com ele; clicar na sala volta ao chat da sala. Os comandos abaixo também valem na interface gráfica e no terminal.
 
 | Comando | O que faz |
 |---|---|
 | `/help` | Lista os comandos |
 | `/users` | Usuários online na sua sala |
 | `/history [quantidade]` | Últimas mensagens da sala |
-| `/msg usuario texto` | Mensagem privada |
+| `/msg usuario texto` | Mensagem privada (também para quem está offline, se tiver conta) |
+| `/conversas` | Lista as suas conversas privadas |
+| `/conversa usuario [quantidade]` | Mostra a sua conversa privada com um usuário |
 | `/buscar usuario <nome>` | Mensagens de um usuário |
 | `/buscar texto <trecho>` | Mensagens que contêm o trecho |
 | `/buscar periodo <AAAA-MM-DD> <AAAA-MM-DD>` | Mensagens entre duas datas |
@@ -121,7 +123,7 @@ xvfb-run -a mvn test          # inclui os testes de janela (Linux sem tela)
 mvnw javadoc:javadoc          # Javadoc em target/site/apidocs
 ```
 
-São 1118 testes. Os 17 testes de janela são ignorados quando não há tela.
+São 1125 testes. Os 17 testes de janela são ignorados quando não há tela.
 
 ## 6. Problemas comuns
 
@@ -158,13 +160,13 @@ São 1118 testes. Os 17 testes de janela são ignorados quando não há tela.
 - Lista de usuários online e avisos de entrada e saída.
 - Comandos `/help`, `/users`, `/history`, `/quit`.
 - Validação de 500 caracteres e formatação `[HH:mm] nome: texto`.
-- Mensagens privadas (`/msg`).
+- Conversas privadas de verdade (`/msg`, `/conversas`, `/conversa`), com histórico por par de usuários, lista de conversas e contador de não lidas.
 - Busca por usuário, texto e período (`/buscar`).
 - Salas (`/join`, `/leave`, `/rooms`).
 - Autenticação com PBKDF2 e salt (`/register`, `/login`).
 - Exportação do histórico (`/exportar`) e log em arquivo, sem o conteúdo das mensagens privadas.
 - Administrador definido por configuração (`/exportar`, `/kick`, `/limpar` e banimento com `/ban`, `/unban` e `/bans` só para ele).
-- Interface gráfica com tema claro e escuro.
+- Interface gráfica em três colunas (salas e conversas, chat, membros), com avatares, mensagens em bloco e tema claro e escuro.
 
 ### Rubrica (5,0 pontos)
 
@@ -336,7 +338,7 @@ Chat desconectado:
 
 ## Estado dos testes e limitações
 
-- 1118 testes. Sem tela, os 17 testes de janela são ignorados; com `xvfb-run -a mvn test` todos rodam.
+- 1125 testes. Sem tela, os 17 testes de janela são ignorados; com `xvfb-run -a mvn test` todos rodam.
 - Todos os testes passam. O teste da sala (`SalaServiceTest.falhaAoBuscarOHistoricoNaoMudaASalaNemAvisaNinguem`) usava um repositório falso que só falhava ao gravar, e o cenário pede falha ao ler. O defeito era do teste e foi corrigido com um repositório falso que falha na leitura.
 - A senha trafega em texto puro, porque não há TLS. O hash PBKDF2 protege só o que fica gravado no banco.
 - Quando se está lendo mensagens antigas, a janela não avisa que chegaram mensagens novas.

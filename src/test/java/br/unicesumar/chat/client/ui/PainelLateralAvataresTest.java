@@ -110,4 +110,9 @@ class PainelLateralAvataresTest {
         painel.selecionarConversa("bia");
         assertEquals(fundoDaOutra, celula(painel.listaDeSalas(), 0).fundo());
     }
+
+    @Test
+    void botaoNovaSalaTemOMesmoEstiloDiscretoDosBotoesDoCabecalho() {
+        assertEquals("toolBarButton", painel.botaoNovaSala().getClientProperty("JButton.buttonType"));
+    }
 }
