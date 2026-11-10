@@ -77,6 +77,12 @@ O `.jar` precisa ficar ao lado da pasta `target/lib`, onde estão o SQLite e o F
 
 **Em outro computador da mesma rede:** no PC do servidor, descubra o IP (`ipconfig` no Windows). Nos outros PCs, abra o cliente e preencha esse IP em "Servidor", com a mesma porta. A senha trafega sem criptografia (sem TLS), por isso não exponha o servidor na internet.
 
+### Demonstração de mensagens simultâneas
+
+Enviar mensagens ao mesmo tempo "na mão" é praticamente impossível, então há um programa que faz isso por você. Com o servidor rodando (por exemplo, depois do `iniciar-tudo.bat`), dê dois cliques em `demonstracao-simultanea.bat` (ou rode `./demonstracao-simultanea.sh`). Ele conecta clientes reais (contas `demo1`, `demo2`, ... criadas na primeira vez), espera todos ficarem prontos, faz todos enviarem ao mesmo tempo e confere se cada cliente recebeu todas as mensagens, sem perda, sem duplicata e na mesma ordem. Se os clientes gráficos estiverem abertos na sala geral, as mensagens aparecem neles ao vivo.
+
+Para mudar o tamanho do teste: `demonstracao-simultanea.bat [servidor] [porta] [clientes] [mensagens] [sala]` (padrão: `localhost 5000 5 10 geral`). Exemplo com mais carga: `demonstracao-simultanea.bat localhost 5000 20 100`. Com TLS, acrescente `--tls`. A senha das contas de demonstração é aleatória e fica em `demonstracao.senha`, que não vai para o GitHub.
+
 ### Administrador
 
 O administrador é uma conta definida **na configuração do servidor, fora do código**. Sem essa configuração, ninguém é administrador e `/exportar`, `/kick` e `/limpar` ficam bloqueados.
@@ -417,7 +423,7 @@ Chat desconectado:
 
 ## Estado dos testes e limitações
 
-- 1204 testes. Sem tela, os 17 testes de janela são ignorados; com `xvfb-run -a mvn test` todos rodam.
+- 1210 testes. Sem tela, os 17 testes de janela são ignorados; com `xvfb-run -a mvn test` todos rodam.
 - Todos os testes passam. O teste da sala (`SalaServiceTest.falhaAoBuscarOHistoricoNaoMudaASalaNemAvisaNinguem`) usava um repositório falso que só falhava ao gravar, e o cenário pede falha ao ler. O defeito era do teste e foi corrigido com um repositório falso que falha na leitura.
 - Por padrão a senha trafega em texto puro. Com `--tls` (veja a seção TLS) a conexão é criptografada. O hash PBKDF2 protege o que fica gravado no banco.
 - Quando se está lendo mensagens antigas, a janela não avisa que chegaram mensagens novas.
