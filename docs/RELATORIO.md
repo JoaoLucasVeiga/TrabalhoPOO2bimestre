@@ -34,11 +34,11 @@ O caminho de uma mensagem é este:
 
 4.  Cada cliente conectado recebe a mensagem pela sua própria saída.
 
-<img src="media/a9cbe94369f0c6ab4ab5d0b938b5eddeb22780cd.png" style="width:3.4375in;height:4.4375in" />
+![diagrama](diagramas/classes.png)
 
 Figura 1. Classes principais e suas dependências.
 
-<img src="media/74d99c5bd5735284b20ab020aa28b7b599f0a578.png" style="width:6.25in;height:2.66667in" />
+![diagrama](diagramas/sequencia.png)
 
 Figura 2. O caminho de uma mensagem, do socket ao banco e ao broadcast.
 
