@@ -179,4 +179,14 @@ class TemaTest {
         assertTrue(visualNoMomentoDoAviso.get(0).contains("Dark"),
                 "o aviso veio antes de instalar o visual: " + visualNoMomentoDoAviso.get(0));
     }
+
+    @Test
+    void instalarOLookAndFeelPadronizaOsCantosArredondadosDeBotoesECampos() {
+        for (Modo modo : Modo.values()) {
+            new Tema(modo).instalarLookAndFeel();
+            assertEquals(12, javax.swing.UIManager.getInt("Button.arc"), modo.toString());
+            assertEquals(12, javax.swing.UIManager.getInt("Component.arc"), modo.toString());
+            assertEquals(12, javax.swing.UIManager.getInt("TextComponent.arc"), modo.toString());
+        }
+    }
 }

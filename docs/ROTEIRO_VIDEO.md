@@ -1,5 +1,7 @@
 # Roteiro do vídeo (até 3 minutos)
 
+> Atenção: o vídeo gravado em `docs/video` mostra a versão anterior da interface. Para um vídeo novo, siga este roteiro, que já considera a interface em três colunas, as conversas privadas e o administrador.
+
 Preparação: apagar `chat.db`, abrir três terminais para os clientes (Ana, Bruno e Carla), um terminal para o servidor e uma janela com `mvn test` já executado. Falar devagar e mostrar a tela.
 
 A ordem segue a rubrica.
@@ -44,3 +46,8 @@ A ordem segue a rubrica.
 ## 2:55 a 3:00 — Fecho
 
 - "Código, README, relatório e revisões estão no repositório."
+
+## Trechos extras (se houver tempo)
+
+- **Conversa privada:** na coluna da direita, dê duplo clique em outro usuário. A conversa abre na área principal (título `@ nome`), com histórico e lista em CONVERSAS. Mande uma mensagem e mostre que só os dois veem. Feche um cliente, escreva para ele e entre de novo: a conversa está lá.
+- **Administrador:** com `servidor.properties` preenchido, entre com a conta do administrador. Só ela vê o botão Exportar e usa `/kick`, `/limpar` e `/ban`. Mostre um usuário comum recebendo "Somente o administrador pode usar ...".

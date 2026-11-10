@@ -60,8 +60,8 @@ public class JanelaChat extends JFrame implements ChatView {
                 zerarNaoLidas();
             }
         });
-        setMinimumSize(new Dimension(800, 560));
-        setSize(1000, 680);
+        setMinimumSize(new Dimension(1080, 560));
+        setSize(1180, 700);
         setLocationRelativeTo(null);
     }
 

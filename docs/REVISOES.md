@@ -1,5 +1,7 @@
 # Revisões do projeto
 
+> Documento histórico: reflete o projeto na época da revisão (905 testes). Depois dele entraram o administrador, o banimento, as conversas privadas e a nova interface; veja o README e o relatório para o estado atual.
+
 Revisões feitas em modo revisor ao fim da etapa (i): apontam o que existe no código, com arquivo e linha, e dizem o que foi corrigido e o que ficou como decisão. As linhas se referem a `src/main/java/br/unicesumar/chat/`. A revisão de arquitetura foi repetida depois da interface gráfica (seção 3), e a seção 5 traz a revisão de usabilidade.
 
 ## 1. Concorrência

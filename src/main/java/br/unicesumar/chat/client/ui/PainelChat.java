@@ -7,9 +7,8 @@ import br.unicesumar.chat.client.controller.MensagemTela;
 import br.unicesumar.chat.client.controller.MensagemTela.Tipo;
 import com.formdev.flatlaf.FlatClientProperties;
 import java.awt.BorderLayout;
+import java.awt.Dimension;
 import java.awt.Component;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.MouseAdapter;
@@ -59,14 +58,14 @@ public class PainelChat extends JPanel implements ChatView {
     private final IndicadorConexao indicador;
     private final JButton botaoTema = new JButton("Tema escuro");
     private final JButton botaoHistorico = new JButton("Histórico");
-    private final JButton botaoBuscar = new JButton("Buscar (Ctrl+F)");
+    private final JButton botaoBuscar = new JButton("Buscar");
     private final JButton botaoExportar = new JButton("Exportar");
-    private final JButton botaoSair = new JButton("Sair (Ctrl+Q)");
+    private final JButton botaoSair = new JButton("Sair");
     private final PainelLateral lateral;
     private final PainelMensagens mensagens;
     private final PainelEntrada entrada;
     private final JLabel faixaDeAviso = new JLabel(" ");
-    private final JPanel topo = new JPanel(new GridBagLayout());
+    private final JPanel topo = new JPanel(new BorderLayout());
     private final JToolBar barra = new JToolBar();
     private final Timer relogioDaFaixa;
     private final Timer relogioDoHistorico;
@@ -142,37 +141,36 @@ public class PainelChat extends JPanel implements ChatView {
         botaoExportar.addActionListener(e -> exportar());
         botaoSair.addActionListener(e -> aoSair.run());
 
-        GridBagConstraints c = new GridBagConstraints();
-        c.insets = new Insets(Tema.espaco(1), Tema.espaco(1), Tema.espaco(1), Tema.espaco(1));
-        c.gridy = 0;
-        c.gridx = 0;
-        topo.add(titulo, c);
-        c.gridx = 1;
-        c.weightx = 1;
-        c.fill = GridBagConstraints.HORIZONTAL;
-        topo.add(resumoDeUsuarios, c);
-        c.gridx = 2;
-        c.weightx = 0;
-        c.fill = GridBagConstraints.NONE;
-        topo.add(indicador, c);
-        c.gridx = 3;
-        topo.add(botaoTema, c);
+        // Cabeçalho: título à esquerda, o resumo no meio (é ele que encolhe, com reticências) e,
+        // à direita, o indicador de conexão e os botões.
+        titulo.setBorder(BorderFactory.createEmptyBorder(Tema.espaco(1), Tema.espaco(2), Tema.espaco(1), Tema.espaco(1)));
+        resumoDeUsuarios.setMinimumSize(new Dimension(Tema.espaco(15), 0));
+        JPanel direita = new JPanel();
+        direita.setLayout(new javax.swing.BoxLayout(direita, javax.swing.BoxLayout.X_AXIS));
+        direita.setOpaque(false);
+        direita.setBorder(BorderFactory.createEmptyBorder(Tema.espaco(1), Tema.espaco(1), Tema.espaco(1), Tema.espaco(1)));
+        direita.add(indicador);
+        direita.add(javax.swing.Box.createHorizontalStrut(Tema.espaco(1)));
+        direita.add(barra);
+        topo.add(titulo, BorderLayout.WEST);
+        topo.add(resumoDeUsuarios, BorderLayout.CENTER);
+        topo.add(direita, BorderLayout.EAST);
 
         barra.setFloatable(false);
         barra.setRollover(true);
+        barra.setOpaque(false);
         barra.add(botaoHistorico);
         barra.add(botaoBuscar);
         barra.add(botaoExportar);
         barra.addSeparator();
+        barra.add(botaoTema);
         barra.add(botaoSair);
 
-        for (JButton b : List.of(botaoHistorico, botaoBuscar, botaoExportar, botaoSair)) {
-            b.putClientProperty(FlatClientProperties.BUTTON_TYPE, FlatClientProperties.BUTTON_TYPE_ROUND_RECT);
+        // Botões discretos, sem moldura, que ganham fundo ao passar o mouse; só o Enviar tem cor de destaque.
+        for (JButton b : List.of(botaoHistorico, botaoBuscar, botaoExportar, botaoTema, botaoSair)) {
+            b.putClientProperty(FlatClientProperties.BUTTON_TYPE, FlatClientProperties.BUTTON_TYPE_TOOLBAR_BUTTON);
         }
-        JPanel norte = new JPanel(new BorderLayout());
-        norte.setOpaque(false);
-        norte.add(topo, BorderLayout.NORTH);
-        norte.add(barra, BorderLayout.SOUTH);
+        JPanel norte = topo;
 
         JPanel centro = new JPanel(new BorderLayout());
         centro.setOpaque(false);
@@ -211,13 +209,11 @@ public class PainelChat extends JPanel implements ChatView {
     private void aplicarTema() {
         Tema.Paleta p = tema.paleta();
         setBackground(p.fundo());
-        topo.setBackground(p.superficie());
+        topo.setBackground(p.fundo());
         topo.setOpaque(true);
         topo.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, p.borda()));
-        barra.setBackground(p.superficie());
-        barra.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createMatteBorder(0, 0, 1, 0, p.borda()),
-                BorderFactory.createEmptyBorder(Tema.espaco(1) / 2, Tema.espaco(1), Tema.espaco(1) / 2, Tema.espaco(1))));
+        barra.setOpaque(false);
+        barra.setBorder(null); // o FlatLaf reinstala a borda padrão ao trocar de visual
         titulo.setFont(tema.fonteTitulo());
         titulo.setForeground(p.textoDestaque());
         resumoDeUsuarios.setFont(tema.fonteCorpo());

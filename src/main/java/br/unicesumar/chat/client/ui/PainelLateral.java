@@ -144,6 +144,8 @@ public class PainelLateral extends JPanel {
         rolagemDeConversas.setAlignmentX(Component.LEFT_ALIGNMENT);
         rolagemDeConversas.setBorder(null);
 
+        botaoNovaSala.putClientProperty(com.formdev.flatlaf.FlatClientProperties.BUTTON_TYPE,
+                com.formdev.flatlaf.FlatClientProperties.BUTTON_TYPE_TOOLBAR_BUTTON);
         botaoNovaSala.setToolTipText("Criar uma sala nova e entrar nela");
         botaoNovaSala.getAccessibleContext().setAccessibleName("Nova sala");
         botaoNovaSala.setAlignmentX(Component.LEFT_ALIGNMENT);

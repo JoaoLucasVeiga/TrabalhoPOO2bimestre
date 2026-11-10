@@ -101,6 +101,12 @@ public class IndicadorConexao extends JComponent {
         return new Dimension(MARGEM + DIAMETRO + Tema.espaco(1) + maior + MARGEM, altura);
     }
 
+    /** Sem isto o layout encolheria o indicador até sumir quando o cabeçalho aperta. */
+    @Override
+    public Dimension getMinimumSize() {
+        return getPreferredSize();
+    }
+
     @Override
     protected void paintComponent(Graphics g) {
         Graphics2D g2 = (Graphics2D) g.create();

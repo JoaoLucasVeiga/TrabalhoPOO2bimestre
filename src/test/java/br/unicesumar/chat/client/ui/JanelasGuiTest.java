@@ -238,4 +238,10 @@ class JanelasGuiTest {
         assertTrue(cores.size() > 4, "a janela parece vazia: " + cores.size() + " cores");
         assertTrue(imagem.getWidth() > 700 && imagem.getHeight() > 400);
     }
+
+    @Test
+    void chatTemLarguraMinimaSuficienteParaAsTresColunas() throws Exception {
+        criarJanelas(new AtomicInteger(), new AtomicInteger());
+        assertTrue(chat.getMinimumSize().width >= 1080, "largura mínima " + chat.getMinimumSize().width);
+    }
 }
