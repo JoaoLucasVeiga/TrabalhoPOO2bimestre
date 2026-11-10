@@ -63,11 +63,16 @@ public final class Tema {
             cor(0xFFFFFF), cor(0xE5E7EB), cor(0x111827), cor(0xFEF3C7),
             cor(0x111827), cor(0xB91C1C), cor(0x15803D), cor(0xB45309));
 
+    // Cinzas-azulados com destaque em azul-violeta: laterais mais escuras que a área da conversa.
     private static final Paleta ESCURA = new Paleta(
-            cor(0x0F172A), cor(0x1E293B), cor(0x334155), cor(0xF1F5F9), cor(0x94A3B8),
-            cor(0x2563EB), cor(0xFFFFFF), cor(0x60A5FA), cor(0x2563EB),
-            cor(0xFFFFFF), cor(0x334155), cor(0xF1F5F9), cor(0x78350F),
-            cor(0xFEF3C7), cor(0xFCA5A5), cor(0x4ADE80), cor(0xFBBF24));
+            cor(0x252736), cor(0x1E1F2B), cor(0x3A3D57), cor(0xE6E8F2), cor(0x9AA0BD),
+            cor(0x5B63E6), cor(0xFFFFFF), cor(0xAAB0FF), cor(0x5B63E6),
+            cor(0xFFFFFF), cor(0x363952), cor(0xE6E8F2), cor(0x3B3558),
+            cor(0xF1ECFF), cor(0xFF9AA6), cor(0x43D17A), cor(0xFBBF24));
+
+    /** Cores dos avatares; todas contrastam com texto branco (pelo menos 4,5:1). */
+    private static final List<Color> AVATARES = List.of(
+            cor(0xB8374F), cor(0x2A6FC9), cor(0x6D4AD6), cor(0x16806F), cor(0xA83C7A), cor(0x9A5A00));
 
     private final List<Runnable> ouvintes = new CopyOnWriteArrayList<>();
     private volatile Modo modo;
@@ -84,6 +89,17 @@ public final class Tema {
     /** Paleta de um modo. */
     public static Paleta paleta(Modo modo) {
         return modo == Modo.CLARO ? CLARA : ESCURA;
+    }
+
+    /** Cores disponíveis para os avatares. */
+    public static List<Color> coresDeAvatar() {
+        return AVATARES;
+    }
+
+    /** Cor do avatar de um nome: sempre a mesma para o mesmo nome (sem diferenciar maiúsculas). */
+    public static Color corDoAvatar(String nome) {
+        String chave = nome == null ? "" : nome.strip().toLowerCase(java.util.Locale.ROOT);
+        return AVATARES.get(Math.floorMod(chave.hashCode(), AVATARES.size()));
     }
 
     /** Múltiplo da grade de 8 px. */
