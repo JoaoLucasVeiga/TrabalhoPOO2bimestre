@@ -80,6 +80,7 @@ public class PainelChat extends JPanel implements ChatView {
     private transient DialogoBusca dialogoDeBusca;
     private String usuario = "";
     private String salaAtual = "geral";
+    private boolean emConversa;
 
     /** Cria o painel (chame na EDT). */
     public PainelChat(Tema tema) {
@@ -228,6 +229,9 @@ public class PainelChat extends JPanel implements ChatView {
     /** Define o controlador que recebe as ações do usuário. */
     public void definirControlador(ChatController controlador) {
         this.controlador = controlador;
+        if (controlador != null) {
+            controlador.habilitarConversas();
+        }
     }
 
     /** O que fazer quando o usuário pede para sair (botão ou Ctrl+Q). */
@@ -290,11 +294,9 @@ public class PainelChat extends JPanel implements ChatView {
                 "Nova sala", JOptionPane.PLAIN_MESSAGE);
     }
 
-    /** Duplo clique em um usuário: prepara uma mensagem privada no campo de texto. */
+    /** Duplo clique em um usuário, ou clique em uma conversa: abre a conversa privada com ele. */
     private void abrirPrivada(String nome) {
-        entrada.campo().setText("/msg " + nome + " ");
-        entrada.campo().requestFocusInWindow();
-        entrada.campo().setCaretPosition(entrada.campo().getText().length());
+        acao(c -> c.abrirConversa(nome));
     }
 
     /** Abre o diálogo de busca (Ctrl+F). */
@@ -414,10 +416,16 @@ public class PainelChat extends JPanel implements ChatView {
         indicador.definir(estado);
         boolean conectado = estado == EstadoConexao.CONECTADO;
         entrada.definirHabilitado(conectado);
-        for (JButton b : List.of(botaoHistorico, botaoBuscar, botaoExportar)) {
-            b.setEnabled(conectado);
-        }
+        atualizarBotoesDaSala();
         botaoNovaSalaHabilitado(conectado);
+    }
+
+    /** Histórico e Exportar são da sala: ficam desligados dentro de uma conversa privada. */
+    private void atualizarBotoesDaSala() {
+        boolean conectado = indicador.estado() == EstadoConexao.CONECTADO;
+        botaoBuscar.setEnabled(conectado);
+        botaoHistorico.setEnabled(conectado && !emConversa);
+        botaoExportar.setEnabled(conectado && !emConversa);
     }
 
     private void botaoNovaSalaHabilitado(boolean ligado) {
@@ -439,8 +447,40 @@ public class PainelChat extends JPanel implements ChatView {
         emEdt(() -> {
             mensagens.substituir(historico);
             salaAtual = sala;
+            emConversa = false;
+            lateral.selecionarConversa(null);
             titulo.setText("# " + sala);
+            atualizarBotoesDaSala();
             liberarHistorico();
+        });
+    }
+
+    @Override
+    public void mostrarConversa(String com, List<MensagemTela> historico) {
+        emEdt(() -> {
+            mensagens.substituir(historico);
+            emConversa = true;
+            lateral.selecionarConversa(com);
+            titulo.setText("@ " + com);
+            atualizarBotoesDaSala();
+            liberarHistorico();
+            entrada.campo().requestFocusInWindow();
+        });
+    }
+
+    @Override
+    public void atualizarConversas(List<String> nomes) {
+        emEdt(() -> lateral.atualizarConversas(nomes));
+    }
+
+    @Override
+    public void atualizarNaoLidas(java.util.Map<String, Integer> naoLidas) {
+        emEdt(() -> {
+            int antes = lateral.totalDeNaoLidas();
+            lateral.atualizarNaoLidas(naoLidas);
+            if (lateral.totalDeNaoLidas() > antes) {
+                aoMensagemDeOutro.run();
+            }
         });
     }
 
@@ -544,7 +584,7 @@ public class PainelChat extends JPanel implements ChatView {
         relogioDoHistorico.stop();
         if (botaoHistorico.getText().equals(Botoes.TEXTO_CARREGANDO)) {
             Botoes.aplicar(botaoHistorico, EstadoBotao.ATIVO);
-            botaoHistorico.setEnabled(indicador.estado() == EstadoConexao.CONECTADO);
+            botaoHistorico.setEnabled(indicador.estado() == EstadoConexao.CONECTADO && !emConversa);
         }
     }
 
@@ -553,7 +593,7 @@ public class PainelChat extends JPanel implements ChatView {
     /** Ordem do Tab: barra de ferramentas, laterais, caixa de mensagem e Enviar. */
     public List<Component> ordemDeFoco() {
         return List.of(botaoHistorico, botaoBuscar, botaoExportar, botaoSair, botaoTema,
-                lateral.listaDeSalas(), lateral.botaoNovaSala(), lateral.listaDeUsuarios(),
+                lateral.listaDeSalas(), lateral.botaoNovaSala(), lateral.listaDeUsuarios(), lateral.listaDeConversas(),
                 entrada.campo(), entrada.botaoEnviar());
     }
 

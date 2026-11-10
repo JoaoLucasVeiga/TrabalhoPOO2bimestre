@@ -78,4 +78,28 @@ public interface MensagemRepository {
     default int apagarSala(String sala) {
         throw new UnsupportedOperationException("Esta implementação não suporta apagar o histórico.");
     }
+
+    /**
+     * Busca as últimas mensagens privadas trocadas entre dois usuários, nos dois sentidos
+     * (nomes sem diferenciar maiúsculas). Mensagens públicas e conversas com terceiros nunca vêm.
+     *
+     * @param quantidade máximo de mensagens; zero devolve lista vazia
+     * @return da mais antiga para a mais recente
+     * @throws IllegalArgumentException se algum nome for nulo ou em branco, ou a quantidade for negativa
+     * @throws UnsupportedOperationException se a implementação não suporta conversas privadas
+     */
+    default List<Mensagem> buscarConversa(String a, String b, int quantidade) {
+        throw new UnsupportedOperationException("Esta implementação não suporta conversas privadas.");
+    }
+
+    /**
+     * Lista com quem o usuário já trocou mensagens privadas, da conversa mais recente para a mais antiga.
+     * Cada interlocutor aparece uma vez, com o nome como foi gravado.
+     *
+     * @throws IllegalArgumentException se o nome for nulo ou em branco
+     * @throws UnsupportedOperationException se a implementação não suporta conversas privadas
+     */
+    default List<String> listarConversas(String usuario) {
+        throw new UnsupportedOperationException("Esta implementação não suporta conversas privadas.");
+    }
 }

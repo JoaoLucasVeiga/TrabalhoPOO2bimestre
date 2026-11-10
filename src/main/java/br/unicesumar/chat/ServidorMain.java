@@ -57,10 +57,10 @@ public final class ServidorMain {
         ConnectionFactory fabrica = ConnectionFactory.arquivo(banco);
         fabrica.criarTabelas();
         ClientRegistry registry = new ClientRegistry();
-        ChatService chat = new ChatService(new JdbcMensagemRepository(fabrica), registry,
-                Clock.systemDefaultZone());
         AuthService auth = comAutenticacao ? new AuthService(new JdbcUsuarioRepository(fabrica),
                 AuthService.ITERACOES_PADRAO, new JdbcBanimentoRepository(fabrica)) : null;
+        ChatService chat = new ChatService(new JdbcMensagemRepository(fabrica), registry,
+                Clock.systemDefaultZone(), auth == null ? nome -> false : auth::contaExiste);
         ExportadorHistorico exportador = new ExportadorHistorico(Path.of("exportacoes"), Clock.systemDefaultZone());
         LogArquivo log = new LogArquivo(Path.of("logs", "servidor.log"), Clock.systemDefaultZone());
         Administradores admins;
