@@ -20,6 +20,11 @@ CREATE TABLE IF NOT EXISTS mensagem (
 
 CREATE INDEX IF NOT EXISTS idx_mensagem_sala ON mensagem (sala, id);
 
+-- Conversas privadas: as consultas comparam os nomes sem diferenciar maiúsculas, então o índice
+-- usa a mesma regra (COLLATE NOCASE); senão o SQLite ignoraria o índice e varreria a tabela.
+CREATE INDEX IF NOT EXISTS idx_mensagem_conversa
+    ON mensagem (remetente COLLATE NOCASE, destinatario COLLATE NOCASE, id);
+
 -- Nomes banidos pelo administrador; a comparação ignora maiúsculas.
 CREATE TABLE IF NOT EXISTS banimento (
     nome      TEXT PRIMARY KEY COLLATE NOCASE,
