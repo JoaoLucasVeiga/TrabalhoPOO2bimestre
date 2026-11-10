@@ -1,7 +1,5 @@
 # Roteiro do vídeo (até 3 minutos)
 
-> Atenção: o vídeo gravado em `docs/video` mostra a versão anterior da interface. Para um vídeo novo, siga este roteiro, que já considera a interface em três colunas, as conversas privadas e o administrador.
-
 Preparação: apagar `chat.db`, abrir três terminais para os clientes (Ana, Bruno e Carla), um terminal para o servidor e uma janela com `mvn test` já executado. Falar devagar e mostrar a tela.
 
 A ordem segue a rubrica.
